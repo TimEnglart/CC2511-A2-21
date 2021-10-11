@@ -14,7 +14,7 @@ char input_buffer[INPUT_BUFFER_SIZE];
 int input_buffer_index;
 
 // WASD Based Menu
-struct menu_node *current_menu, *main_menu, *secondary_menu;
+struct menu_node *current_menu, *main_menu, *free_draw_menu, *predefined_draw_menu, *debug_menu;
 int text_output_y;
 char in_menu;
 
@@ -64,6 +64,7 @@ void uart_irq_handler(void)
     // Backspace
     case '\b':
     case 0x7f:
+      // if there is a previous menu go back
       if (current_menu->previous_menu)
         go_to_menu(current_menu->previous_menu);
       else
@@ -74,6 +75,7 @@ void uart_irq_handler(void)
     case ' ':
     case '\r':
     case '\n':
+      // Run the Selection Function for the current Menu Option 
       if (current_menu->options[current_menu->current_selection].on_select)
         current_menu->options[current_menu->current_selection].on_select();
       break;
@@ -168,7 +170,7 @@ void create_menu(struct menu_node *menu, const char *menu_name, struct menu_node
   menu->override_irq = 0;
 
   // Prevent GC on Options when removed from the stack
-  menu->options = malloc(sizeof(struct menu_option) * options_length);
+  menu->options = (struct menu_option *)malloc(sizeof(struct menu_option) * options_length);
   memcpy(menu->options, options, sizeof(struct menu_option) * options_length);
 
   // Set the Text Output Section based on the largest Menu... for now (could dynamically clear)
@@ -182,6 +184,7 @@ void go_to_menu(struct menu_node *menu)
   struct menu_node *previous_menu = current_menu;
   current_menu = menu;
   draw_menu();
+  
   // Clear the Overflowed Options
   // eg. Menu 1 has 7 Options & Menu 2 has 5 Options. The 6th and 7th option will remain on Menu 2. Remove them
   for (int i = current_menu->options_length; i < previous_menu->options_length; i++)
@@ -197,7 +200,7 @@ void first_option(void)
 }
 void go_to_second_menu(void)
 {
-  go_to_menu(secondary_menu);
+  // go_to_menu(secondary_menu);
 }
 void second_option(void)
 {
@@ -208,31 +211,53 @@ void generate_menus(void)
 {
   // Allocate Memory for all the menus
   main_menu = (struct menu_node *)malloc(sizeof(struct menu_node));
-  secondary_menu = (struct menu_node *)malloc(sizeof(struct menu_node));
+  free_draw_menu = (struct menu_node *)malloc(sizeof(struct menu_node));
+  predefined_draw_menu = (struct menu_node *)malloc(sizeof(struct menu_node));
+  debug_menu = (struct menu_node *)malloc(sizeof(struct menu_node));
 
   // Create Options
 
   // Main Menu
   struct menu_option main_menu_options[] = {
-      {.on_select = first_option,
-       .option_text = "1st Option"},
-      {.on_select = first_option,
-       .option_text = "2nd Option"},
-      {.on_select = go_to_second_menu,
-       .option_text = "3rd Option"},
-      {.on_select = first_option,
-       .option_text = "4th Option"}};
+    {
+      .on_select = first_option,
+      .option_text = "Free Draw"
+    },
+    {
+      .on_select = first_option,
+      .option_text = "Predefined Draw"
+    },
+    {
+      .on_select = go_to_second_menu,
+      .option_text = "Debug"
+    }
+  };
 
   create_menu(main_menu, "Main Menu", 0, LENGTH_OF_ARRAY(main_menu_options), main_menu_options);
 
-  // Seconday menu
-  struct menu_option secondary_menu_options[] = {
-      {.on_select = second_option,
-       .option_text = "Secondary Option #1"},
-       {.on_select = second_option,
-       .option_text = "Secondary Option #2"}};
 
-  create_menu(secondary_menu, "Secondary Menu", main_menu, LENGTH_OF_ARRAY(secondary_menu_options), secondary_menu_options);
+  // Free Draw Menu
+  create_menu(free_draw_menu, "Free Draw", main_menu, 0, 0);
+  free_draw_menu->override_irq = 0; // Custom UART IRQ Handler
+  // Predefined Draw ()
+  create_menu(predefined_draw_menu, "Predefined Draw", main_menu, 0, 0);
+  // Debug menu
+  /*
+    What Debug Values do we want
+    - DRV_[AXIS]_LOCATION (Counter + Updatable)
+    - DRV_[AXIS]_DIRECTION (Counter + Updatable)
+    - DRV_[AXIS]_PWM (Is The PWM IRQ running)
+    - DRV_[STATUS] (Enable, Decay, Reset, Sleep, MODES, etc)
+
+
+    - SPINDLE_STATUS (Toggleable)
+
+    - PICO_MEMORY_USAGE
+
+
+  */
+  // struct menu_option debug_menu_options[] = {};
+  // create_menu(debug_menu, "Debug", main_menu, LENGTH_OF_ARRAY(debug_menu_options), debug_menu_options);
 
   // Set The Current Menu to Main Menu
   current_menu = main_menu;
@@ -243,8 +268,6 @@ void release_menus(void)
   // Some how dynamically free all Items.
   free(main_menu->options);
   free(main_menu);
-  free(secondary_menu->options);
-  free(secondary_menu);
 }
 
 void write_debug(const char *format, ...)

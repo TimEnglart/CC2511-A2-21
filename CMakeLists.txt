@@ -17,8 +17,9 @@ add_executable(${projname}
         utils.c
         drv8825.c
         menu.c
+        queue.c
         )
 
-target_link_libraries(${projname} pico_stdlib hardware_pwm hardware_uart hardware_adc hardware_irq hardware_dma pico_multicore pico_stdio_usb)
+target_link_libraries(${projname} pico_stdlib hardware_pwm hardware_uart hardware_adc hardware_irq hardware_dma pico_multicore pico_stdio_usb pico_mutex)
 pico_add_extra_outputs(${projname})
 
