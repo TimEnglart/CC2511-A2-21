@@ -10,14 +10,15 @@
 
 
 /*
-    Timing Requirements:            MIN	MAX	UNIT
-    1	ƒSTEP	Step frequency		250	kHz
-    2	tWH(STEP)	Pulse duration, STEP high	1.9		μs
-    3	tWL(STEP)	Pulse duration, STEP low	1.9		μs
-    4	tSU(STEP)	Setup time, command before STEP rising	650		ns
-    5	tH(STEP)	Hold time, command after STEP rising	650		ns
-    6	tENBL	Enable time, nENBL active to STEP	650		ns
-    7	tWAKE	Wakeup time, nSLEEP inactive high to STEP input accepted		1.7	ms
+    Timing Requirements:                                            MIN	    MAX	    UNIT
+    1	ƒSTEP	    Step frequency		                            250	    kHz
+    2	tWH(STEP)	Pulse duration, STEP high	                    1.9		        μs
+    3	tWL(STEP)	Pulse duration, STEP low	                    1.9		        μs
+    4	tSU(STEP)	Setup time, command before STEP rising	        650		        ns
+    5	tH(STEP)	Hold time, command after STEP rising	        650		        ns
+    6	tENBL	    Enable time, nENBL active to STEP	            650		        ns
+    7	tWAKE	    Wakeup time, nSLEEP inactive high to            1.7	            ms
+                    STEP input accepted		
 */
 
 #define DRV_STEP_FREQ_SLEEP 5
