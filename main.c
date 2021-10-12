@@ -93,15 +93,17 @@ void thread_main(void)
     }
     // The above While will be skipped if there isn't anything to do
 
+
     // Turn off Spindle
-    gpio_put(SPINDLE_TOGGLE, false);
+    // TODO: May need to raise the Z motor if we stop the spindle to prevent it catching
+    // gpio_put(SPINDLE_TOGGLE, false);
     
     // Should we do this?
     drv_enable_driver(false);
 
     __wfi(); // Should be fine to wait for interrupt as UART is how data is being delievered
     // If this is to become a problem we could probably implement a mock interrupt that just returns
-
+    // Or just ignore and not be battery efficient.
   }
 }
 
@@ -134,8 +136,48 @@ int main(void) {
   // Print the Menu to Screen
   draw_menu();
   
-  while (in_menu) {
-    __wfi();
+  // Keep a local pointer and value to track what we have rendered vs the state of the actual menu
+  struct menu_node *local_current_menu = current_menu;
+  char local_previous_selection = current_menu->previous_selection;
+
+  while (true) {
+    __wfi(); // Wait for Interrupt
+
+    if(current_menu != local_current_menu) // Compare pointer addresses of the menus
+    {
+      if(!current_menu) // We have exited the menu
+      {
+        term_cls();
+        break;
+      }
+      // We have changed Menus
+      // Basically C+P'd from go_to_menu without the pointer update
+      draw_menu();
+      
+      // Clear the Overflowed Options
+      // eg. Menu 1 has 7 Options & Menu 2 has 5 Options. The 6th and 7th option will remain on Menu 2. Remove them
+      for (int i = current_menu->options_length; i < local_current_menu->options_length; i++)
+      {
+        term_move_to(0, OPTIONS_START_Y + i);
+        term_erase_line();
+      }
+      
+      local_current_menu = current_menu;
+      local_previous_selection = current_menu->previous_selection;
+    }
+    else if(current_menu->previous_selection != local_previous_selection)
+    {
+      // We have Remained in the same menu and Selection has been updated
+      update_selection();
+      local_previous_selection = current_menu->previous_selection;
+    }
+    else if(selected_function)
+    {
+      // We have been given a function pointer to execute
+      selected_function();
+      selected_function = 0;
+    }
+    // Something else has happened
   }
   
   // Disable UART

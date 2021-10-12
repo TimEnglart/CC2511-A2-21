@@ -16,7 +16,7 @@ int input_buffer_index;
 // WASD Based Menu
 struct menu_node *current_menu, *main_menu, *free_draw_menu, *predefined_draw_menu, *debug_menu;
 int text_output_y;
-char in_menu;
+void (*selected_function)(void);
 
 void uart_irq_handler(void)
 {
@@ -37,7 +37,7 @@ void uart_irq_handler(void)
       {
         current_menu->previous_selection = current_menu->current_selection;
         current_menu->current_selection--;
-        update_selection();
+        // update_selection();
       }
       break;
     case 's':
@@ -45,7 +45,7 @@ void uart_irq_handler(void)
       {
         current_menu->previous_selection = current_menu->current_selection;
         current_menu->current_selection++;
-        update_selection();
+        // update_selection();
       }
       break;
 
@@ -66,9 +66,9 @@ void uart_irq_handler(void)
     case 0x7f:
       // if there is a previous menu go back
       if (current_menu->previous_menu)
-        go_to_menu(current_menu->previous_menu);
-      else
-        in_menu = 0;
+        current_menu = current_menu->previous_menu;
+        // go_to_menu(current_menu->previous_menu);
+      else current_menu = 0; // probs can remove the if as nullptr is 0
       break;
 
     // Enter
@@ -77,7 +77,7 @@ void uart_irq_handler(void)
     case '\n':
       // Run the Selection Function for the current Menu Option 
       if (current_menu->options[current_menu->current_selection].on_select)
-        current_menu->options[current_menu->current_selection].on_select();
+        selected_function = current_menu->options[current_menu->current_selection].on_select;
       break;
     default: // On non-special key
       break;

@@ -3,6 +3,7 @@
 
 #include "hardware/uart.h"
 #include "stdarg.h"
+#include <stdbool.h>
 
 #define INPUT_BUFFER_SIZE 100
 #define OPTIONS_START_Y 4
@@ -11,6 +12,8 @@
 
 // Let other modules know whether a menu is being shown. Allows for exit of the program
 extern char in_menu;
+extern struct menu_node *current_menu;
+extern void (*selected_function)(void);
 
 // Structure to represent and scope a menu option
 struct menu_option {
