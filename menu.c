@@ -4,6 +4,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include "queue.h"
 
 char pending_character_buffer[INPUT_BUFFER_SIZE];
 int pending_character_buffer_index;
@@ -16,13 +17,12 @@ int input_buffer_index;
 // WASD Based Menu
 struct menu_node *current_menu, *main_menu, *free_draw_menu, *predefined_draw_menu, *debug_menu;
 int text_output_y;
-void (*selected_function)(void);
 
 void uart_irq_handler(void)
 {
   while (uart_is_readable(PICO_UART_ID))
   {
-    uint8_t ch = uart_getc(PICO_UART_ID);
+    char ch = uart_getc(PICO_UART_ID);
 
     // Let the Menu Handle Key Presses / Exit if it has handled the keypress
     if (current_menu->override_irq && current_menu->override_irq(ch))
@@ -65,10 +65,8 @@ void uart_irq_handler(void)
     case '\b':
     case 0x7f:
       // if there is a previous menu go back
-      if (current_menu->previous_menu)
-        current_menu = current_menu->previous_menu;
-        // go_to_menu(current_menu->previous_menu);
-      else current_menu = 0; // probs can remove the if as nullptr is 0
+      //if (current_menu->previous_menu)
+      current_menu = current_menu->previous_menu;
       break;
 
     // Enter
@@ -77,7 +75,7 @@ void uart_irq_handler(void)
     case '\n':
       // Run the Selection Function for the current Menu Option 
       if (current_menu->options[current_menu->current_selection].on_select)
-        selected_function = current_menu->options[current_menu->current_selection].on_select;
+        current_menu->selected_function = current_menu->options[current_menu->current_selection].on_select;
       break;
     default: // On non-special key
       break;
@@ -105,9 +103,6 @@ void update_selection(void)
 
 void draw_menu(void)
 {
-  if (!in_menu)
-    in_menu = 1;
-
   // Draw Program Title
   term_move_to(0, 0);
   term_erase_line();
@@ -120,7 +115,7 @@ void draw_menu(void)
   term_set_color(clrGreen, clrBlack);
   printf("Controls: W - Up | S - Down | A - Left | D - Right");
 
-  write_debug("\nLength: %d\nText: %s\n", current_menu->options_length, current_menu->options[0].option_text);
+  // write_debug("\nLength: %d\nText: %s\n", current_menu->options_length, current_menu->options[0].option_text);
 
   // Draw Options
   for (int i = 0; i < current_menu->options_length; i++)
@@ -200,11 +195,41 @@ void first_option(void)
 }
 void go_to_second_menu(void)
 {
-  // go_to_menu(secondary_menu);
+  drv_queue_node_t node =
+  {
+    .x_steps = 4
+  };
+  queue_push(&pico_state.step_queue, &node);
+  write_debug("%d", pico_state.step_queue.length);
 }
 void second_option(void)
 {
   printf(":)");
+}
+
+char free_draw_irq(char ch) 
+{
+  // Statically Allocate our scoped variables that our function relies on
+  static int x, y, z;
+
+  switch (ch)
+  {
+  case 'w':
+    
+    break;
+  case 's':
+    
+    break;
+  case 'a':
+    
+    break;
+  case 'd':
+    
+    break;
+  
+  default:
+    return 0;
+  }
 }
 
 void generate_menus(void)
@@ -238,7 +263,7 @@ void generate_menus(void)
 
   // Free Draw Menu
   create_menu(free_draw_menu, "Free Draw", main_menu, 0, 0);
-  free_draw_menu->override_irq = 0; // Custom UART IRQ Handler
+  free_draw_menu->override_irq = free_draw_irq; // Custom UART IRQ Handler
   // Predefined Draw ()
   create_menu(predefined_draw_menu, "Predefined Draw", main_menu, 0, 0);
   // Debug menu
@@ -256,8 +281,48 @@ void generate_menus(void)
 
 
   */
-  // struct menu_option debug_menu_options[] = {};
-  // create_menu(debug_menu, "Debug", main_menu, LENGTH_OF_ARRAY(debug_menu_options), debug_menu_options);
+  struct menu_option debug_menu_options[] = {
+    {
+      .option_text = "DRV_X_LOCATION"
+    },
+    {
+      .option_text = "DRV_X_DIRECTION"
+    },
+    {
+      .option_text = "DRV_Y_LOCATION"
+    },
+    {
+      .option_text = "DRV_Y_DIRECTION"
+    },
+    {
+      .option_text = "DRV_Z_LOCATION"
+    },
+    {
+      .option_text = "DRV_Z_DIRECTION"
+    },
+    {
+      .option_text = "DRV_ENABLE"
+    },
+    {
+      .option_text = "DRV_DECAY"
+    },
+    {
+      .option_text = "DRV_RESET"
+    },
+    {
+      .option_text = "DRV_SLEEP"
+    },
+    {
+      .option_text = "DRV_MODE_0"
+    },
+    {
+      .option_text = "DRV_MODE_1"
+    },
+    {
+      .option_text = "DRV_MODE_2"
+    }
+  };
+  create_menu(debug_menu, "Debug", main_menu, LENGTH_OF_ARRAY(debug_menu_options), debug_menu_options);
 
   // Set The Current Menu to Main Menu
   current_menu = main_menu;

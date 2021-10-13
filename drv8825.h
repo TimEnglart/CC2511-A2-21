@@ -11,7 +11,7 @@
 
 /*
     Timing Requirements:                                            MIN	    MAX	    UNIT
-    1	ƒSTEP	    Step frequency		                            250	    kHz
+    1	ƒSTEP	    Step frequency		                                    250	    kHz
     2	tWH(STEP)	Pulse duration, STEP high	                    1.9		        μs
     3	tWL(STEP)	Pulse duration, STEP low	                    1.9		        μs
     4	tSU(STEP)	Setup time, command before STEP rising	        650		        ns
@@ -34,7 +34,9 @@ char drv_has_fault(uint8_t gpio_pin);
 void drv_reset(uint8_t gpio_pin, bool reset_state);
 void drv_sleep(uint8_t gpio_pin, bool sleep_state);
 
+// Determine the Percentage of a step based on the active modes
 float drv_determine_step(bool mode_0, bool mode_1, bool mode_2);
+// Determine the Actual step count based on the number of steps at a certain step
 float drv_determine_distance(float step_amount, unsigned int n_steps);
 
 #endif // DRV8825_H

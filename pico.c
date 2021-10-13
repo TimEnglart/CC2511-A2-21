@@ -7,17 +7,22 @@ PICO_STATE pico_state;
 // Initialise the DEBUG PICO's UART Pins
 void pico_uart_init(irq_handler_t handler)
 {
-    uart_init(PICO_UART_ID, PICO_BAUD_RATE);
-
     gpio_init_mask((1 << PICO_UART_RX) | (1 << PICO_UART_TX));
+    uart_init(PICO_UART_ID, PICO_BAUD_RATE);
+    
     gpio_set_dir(PICO_UART_RX, false);
     gpio_set_dir(PICO_UART_TX, true);
+    
     gpio_set_function(PICO_UART_RX, GPIO_FUNC_UART);
     gpio_set_function(PICO_UART_TX, GPIO_FUNC_UART);
-
+    
+    uart_set_hw_flow(PICO_UART_ID, false, false);
+    uart_set_format(PICO_UART_ID, PICO_DATA_BITS, PICO_STOP_BITS, PICO_PARITY);
+    uart_set_fifo_enabled(PICO_UART_ID, false);
+    
     irq_set_exclusive_handler(PICO_UART_IRQ, handler);
     irq_set_enabled(PICO_UART_IRQ, true);
-    uart_set_irq_enables(PICO_UART_ID, true, true);
+    uart_set_irq_enables(PICO_UART_ID, true, false);
 }
 
 

@@ -17,9 +17,15 @@ void queue_pop(drv_queue_t *queue, drv_queue_node_t *node)
         // Copy the data from the current node into the provided node
         drv_queue_node_t *start = queue->start;
         memcpy(node, start, sizeof(drv_queue_node_t));
-
+        
         // Update the Queue as we are removing this node
-        queue->start = start->next;
+        if(queue->length > 1)
+            queue->start = start->next;
+        else
+        {
+            queue->end = 0;
+            queue->start = 0;
+        }
         queue->length--;
         free(start);
     }
@@ -35,8 +41,7 @@ void queue_peek(drv_queue_t *queue, drv_queue_node_t *node)
     if(!queue_is_empty(queue))
     {
         // Copy the data from the current node into the provided node
-        drv_queue_node_t *start = queue->start;
-        memcpy(node, start, sizeof(drv_queue_node_t));
+        memcpy(node, queue->start, sizeof(drv_queue_node_t));
     }
     mutex_exit(&queue->queue_lock);
 }
