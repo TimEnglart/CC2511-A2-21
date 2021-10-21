@@ -2,7 +2,6 @@
 #define QUEUE_H
 
 #include <stdbool.h>
-#include <pthread.h>
 #include "pico/mutex.h"
 
 typedef unsigned char uint8_t;
@@ -35,6 +34,7 @@ typedef struct {
     uint32_t length;
     mutex_t queue_lock;
     bool running;
+    bool processing;
 } drv_queue_t;
 
 // Checks to see if there are nodes in the queue

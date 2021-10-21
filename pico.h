@@ -2,9 +2,7 @@
 #define PICO_H
 
 #include <stdbool.h>
-#include <limits.h>
 #include <stdarg.h>
-#include <pthread.h>
 #include "pico/stdlib.h"
 #include "hardware/uart.h"
 #include "hardware/irq.h"

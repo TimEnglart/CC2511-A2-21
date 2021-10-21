@@ -24,13 +24,11 @@ TODO LIST
 
 #include <stdbool.h>
 #include "pico/stdlib.h"
-#include "hardware/pwm.h"
+#include "pico/multicore.h"
 #include "pico.h"
 #include "menu.h"
-#include <pthread.h>
 #include "drv8825.h"
 #include "queue.h"
-#include "pico/multicore.h"
 #include "terminal.h"
 
 // Wait for Interrupt to process the step queue. Comment out define to just sleep
@@ -70,7 +68,8 @@ int main(void) {
   // Print the Menu to Screen
   draw_menu();
 
-  while (true) {
+  // While we are in the menu's
+  while (current_menu) {
     __wfi(); // Wait for Interrupt
     // Do All the Logic in the Interrupt as we are not using the main loop for anything else
   }
@@ -141,6 +140,8 @@ int main(void) {
     .mode_2 = GET_BIT_N(y_remainder_modes, 1)
   };
 
+  pico_state.step_queue.processing = true; // bye thread safety
+
   queue_push(&pico_state.step_queue, &reset_z);
   queue_push(&pico_state.step_queue, &reset_z_remainder);
   queue_push(&pico_state.step_queue, &reset_x_y);
@@ -154,6 +155,11 @@ int main(void) {
   pico_uart_deinit();
   // Free Menu Resources
   release_menus();
+
+  while(pico_state.step_queue.processing)
+  {
+    sleep_ms(100);
+  }
 }
 
 
@@ -170,7 +176,7 @@ void thread_main(void)
       sleep_ms(1000);
     #endif
 
-    while(!queue_is_empty(&pico_state.step_queue) && pico_state.step_queue.running)
+    while(!queue_is_empty(&pico_state.step_queue))
     {
       // Setup Information needed for step
       uint32_t step_mask = 0;
@@ -182,7 +188,7 @@ void thread_main(void)
         // We have failed to get the data for the steps.
         continue;
       }         
-     
+      pico_state.step_queue.processing = true;
       // TODO: Either put the gpio initialisations in a seperate function w/ the respective sleeps
       // or add them here
 
@@ -241,4 +247,5 @@ void thread_main(void)
     // Should we do this?
     drv_enable_driver(false);
   }
+  pico_state.step_queue.processing = false;
 }

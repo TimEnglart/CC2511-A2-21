@@ -1,6 +1,7 @@
 #include "pico.h"
-#include "hardware/pwm.h"
-#include "hardware/clocks.h"
+#include "drv8825.h"
+#include <math.h>
+
 
 PICO_STATE pico_state;
 
