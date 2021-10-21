@@ -25,16 +25,6 @@ void pico_uart_init(irq_handler_t handler)
     uart_set_irq_enables(PICO_UART_ID, true, false);
 }
 
-
-void pico_pwm_init(uint gpio, uint pwm_wrap) {
-    gpio_init(gpio);
-    gpio_set_dir(gpio, true);
-    gpio_set_function(gpio, GPIO_FUNC_PWM);
-    uint pwm_slice = pwm_gpio_to_slice_num(gpio);
-    pwm_set_wrap(pwm_slice, pwm_wrap);
-    pwm_set_enabled(pwm_slice, 1);
-}
-
 void pico_gpio_init(int n_pins, ...) 
 {
     va_list pins;
@@ -50,6 +40,42 @@ void pico_uart_deinit(void)
     irq_clear(PICO_UART_IRQ);
     uart_deinit(PICO_UART_ID);
 }
+
+void enable_spindle(bool enabled)
+{
+    gpio_put(SPINDLE_TOGGLE, enabled);
+    pico_state.spindle_enabled = enabled;
+}
+void drv_set_mode(bool mode_0, bool mode_1, bool mode_2)
+{
+    gpio_put(DRV_MODE_0, mode_0);
+    pico_state.mode_0 = mode_0;
+    gpio_put(DRV_MODE_1, mode_1);
+    pico_state.mode_1 = mode_1;
+    gpio_put(DRV_MODE_2, mode_2);
+    pico_state.mode_2 = mode_2;
+}
+void drv_set_direction(DRV_DRIVER axis, bool direction)
+{
+    char pin = drv_get_axis_pin(axis);
+    gpio_put(pin, direction);
+
+    switch (axis)
+    {
+    case X:
+        pico_state.drv_x_direction = direction;
+        break;
+    case Y:
+        pico_state.drv_y_direction = direction;
+        break;
+    case Z:
+        pico_state.drv_z_direction = direction;
+        break;
+    default:
+        break;
+    }
+}
+
 
 char drv_get_axis_pin(DRV_DRIVER axis)
 {
@@ -87,54 +113,63 @@ void drv_enable_driver(bool enabled)
     gpio_put(DRV_ENABLE, !enabled); // Make Sure it is giving outputs
     sleep_us(1);
     gpio_put(DRV_RESET, enabled); // Enable HBridge Outputs
+    pico_state.drv_enabled = enabled;
 }
 
-void drv_step_driver(DRV_DRIVER axis, bool direction)
+void drv_append_position(float x, float y, float z)
 {
-    char gpio_pin = drv_get_axis_pin(axis);
-    if(gpio_pin < 0)
-        return; // We have an invaild Axis Provided
-
-    gpio_put(gpio_pin + 1, direction);
-
-    // Turn on the PWM for the Axis... Should Disable itself after 1 PWM cycle
-    pwm_set_enabled(pwm_gpio_to_slice_num(gpio_pin), 1);
+    return drv_go_to_position(
+        pico_state.drv_x_location_pending + x, 
+        pico_state.drv_y_location_pending + y, 
+        pico_state.drv_z_location_pending + z
+    );
 }
 
-// TOOD: Remove this later as we are not using pwm
-void drv_setup_driver(DRV_DRIVER axis, irq_handler_t on_pwm_wrap)
+// X, Y, Z should be absolute values here
+void drv_go_to_position(float x, float y, float z)
 {
-    // https://forums.raspberrypi.com/viewtopic.php?t=303116
+    // TODO: Check to see if the new positions underflow/overflow the area that the steppers operate in
+    // e.g. Going below 0 or going over the maximum number of steps (currently unknown)
 
-    char gpio_pin = drv_get_axis_pin(axis);
-    if(gpio_pin < 0)
-        return; // We have an invaild Axis Provided
+    // TODO: Validate that the provided position is within the allowed stepping range (as position is steps)
+    // e.g. The new position is divisible by 0.03125 (32 microsteps)
 
-    // Get PWM info
-    uint slice_num = pwm_gpio_to_slice_num(gpio_pin);
-    uint channel = pwm_gpio_to_channel(gpio_pin);
+    // For Each Axis Determine the Direction
+    bool x_dir = pico_state.drv_x_location_pending <= x,
+        y_dir = pico_state.drv_y_location_pending <= y,
+        z_dir = pico_state.drv_z_location_pending <= z;
 
-    // Config the PWM. Time for some big boy engineering math
-    pwm_config config = pwm_get_default_config();
-    pwm_config_set_clkdiv_mode(&config, PWM_DIV_FREE_RUNNING); // Free Running Mode thanks
-    // Setup Frequncy
-    uint f_sys = clock_get_hz(clk_sys); // Get System Clock
-	float divider = f_sys / 1000000UL; // Have Divider run at 1MHz
-	pwm_config_set_clkdiv(&config, divider); // Set Divider
-	uint top =  1000000UL / DRV_STEP_FREQUENCY - 1; // Wrap will be based on DRV_STEP_FREQUENCY
-	pwm_set_wrap(slice_num, top);
-    
-    
-    // Setup GPIO Function
-    gpio_set_function(gpio_pin, GPIO_FUNC_PWM);
-    // Setup IRQ
-    // We have IRQ so that on every pwm wrap ("tick") at said frequency
-    // we can move the motor if need be in a non blocking/busy waiting behaviour. 
-    pwm_clear_irq(slice_num);
-    pwm_set_irq_enabled(slice_num, 1);
-    irq_set_exclusive_handler(PWM_IRQ_WRAP, on_pwm_wrap);
-    irq_set_enabled(PWM_IRQ_WRAP, 1);
-    // Enable PWM
-    // 3rd param is to start pwm (automatic|manu)ally
-    pwm_init(slice_num, &config, 0); // Not Started Automatically
+    // For Each Axis Determine the Distance Required
+    float x_distance = fabsf(pico_state.drv_x_location_pending - x),
+        y_distance = fabsf(pico_state.drv_y_location_pending - y),
+        z_distance = fabsf(pico_state.drv_z_location_pending - z);
+
+    // For Each Axis Determine the Mode Required
+    uint8_t x_mode = drv_determine_mode(x_distance),
+        y_mode = drv_determine_mode(y_distance),
+        z_mode = drv_determine_mode(z_distance);
+
+    // Get the Largest Mode (which is the smallest step) (As all motors share modes)
+    uint8_t mode_mask = x_mode;
+    if (y_mode > mode_mask) mode_mask = y_mode;
+    if (z_mode > mode_mask) mode_mask = z_mode;
+
+    // Update the pending locations
+    pico_state.drv_x_location_pending = x;
+    pico_state.drv_y_location_pending = y;
+    pico_state.drv_z_location_pending = z;
+
+    // Add Changes to the Queue
+    drv_queue_node_t node = {
+        .x_steps = drv_step_amount_masked(x_distance, mode_mask),
+        .x_dir = x_dir,
+        .y_steps = drv_step_amount_masked(y_distance, mode_mask),
+        .y_dir = y_dir,
+        .z_steps = drv_step_amount_masked(z_distance, mode_mask),
+        .z_dir = z_dir,
+        .mode_0 = GET_BIT_N(mode_mask, 3), 
+        .mode_1 = GET_BIT_N(mode_mask, 2), 
+        .mode_2 = GET_BIT_N(mode_mask, 1)
+    };
+    queue_push(&pico_state.step_queue, &node);
 }

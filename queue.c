@@ -56,6 +56,7 @@ void queue_push(drv_queue_t *queue, drv_queue_node_t* node)
 
     // Due to the fact they we are passing data and not pointers 
     // we need to know if the data is "valid" as we cannot compare to a nullptr
+    new_end->next = 0;
     new_end->initialized = true;
 
     // If no starting node exists this is the starting node

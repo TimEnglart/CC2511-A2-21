@@ -14,7 +14,6 @@ TODO LIST
 - Create Variables to track the state of the motors
 - Load Instructions to automate milling
 - Document and Clean Code for more marks.
-
 */
 
 /*
@@ -99,9 +98,9 @@ int main(void) {
   drv_queue_node_t reset_z_remainder = {
     .z_steps = drv_step_amount_masked(z_steps_remainder, z_remainder_modes),
     .z_dir = false,
-    .mode_0 = GET_BIT_N(z_remainder_modes, 1),
+    .mode_0 = GET_BIT_N(z_remainder_modes, 3),
     .mode_1 = GET_BIT_N(z_remainder_modes, 2),
-    .mode_2 = GET_BIT_N(z_remainder_modes, 3)
+    .mode_2 = GET_BIT_N(z_remainder_modes, 1)
   };
 
 
@@ -128,18 +127,18 @@ int main(void) {
   drv_queue_node_t reset_x_remainder = {
     .x_steps = drv_step_amount_masked(x_steps_remainder, x_remainder_modes),
     .x_dir = false,
-    .mode_0 = GET_BIT_N(x_remainder_modes, 1),
+    .mode_0 = GET_BIT_N(x_remainder_modes, 3),
     .mode_1 = GET_BIT_N(x_remainder_modes, 2),
-    .mode_2 = GET_BIT_N(x_remainder_modes, 3)
+    .mode_2 = GET_BIT_N(x_remainder_modes, 1)
   };
   float y_steps_remainder = pico_state.drv_y_location - y_steps;
   uint8_t y_remainder_modes = drv_determine_mode(y_steps_remainder);
   drv_queue_node_t reset_y_remainder = {
     .y_steps = drv_step_amount_masked(y_steps_remainder, y_remainder_modes),
     .y_dir = false,
-    .mode_0 = GET_BIT_N(y_remainder_modes, 1),
+    .mode_0 = GET_BIT_N(y_remainder_modes, 3),
     .mode_1 = GET_BIT_N(y_remainder_modes, 2),
-    .mode_2 = GET_BIT_N(y_remainder_modes, 3)
+    .mode_2 = GET_BIT_N(y_remainder_modes, 1)
   };
 
   queue_push(&pico_state.step_queue, &reset_z);
@@ -187,23 +186,23 @@ void thread_main(void)
       // TODO: Either put the gpio initialisations in a seperate function w/ the respective sleeps
       // or add them here
 
+      // Get the Step Size
+      float step_size = drv_determine_step(node.mode_0, node.mode_1, node.mode_2);
+
       // Enable Drivers
       drv_enable_driver(true);
 
 
       // Setup Step Directions. TODO: Add Sleeps if needed
-      gpio_put(DRV_X_DIRECTION, node.x_dir);
-      gpio_put(DRV_Y_DIRECTION, node.y_dir);
-      gpio_put(DRV_Z_DIRECTION, node.z_dir);
+      drv_set_direction(X, node.x_dir);
+      drv_set_direction(Y, node.y_dir);
+      drv_set_direction(Z, node.z_dir);
 
       // Setup Mode. TODO: Add Sleeps if needed
-      float step_size = drv_determine_step(node.mode_0, node.mode_1, node.mode_2);
-      gpio_put(DRV_MODE_0, node.mode_0);
-      gpio_put(DRV_MODE_1, node.mode_1);
-      gpio_put(DRV_MODE_2, node.mode_2);
+      drv_set_mode(node.mode_0, node.mode_1, node.mode_2);
 
       // Turn on Spindle
-      gpio_put(SPINDLE_TOGGLE, true);
+      enable_spindle(true);
       
       // Need to init these initialisers for the loop as they underflow if not assigned
       // Did not know that (actually undefined behaviour)
@@ -237,7 +236,7 @@ void thread_main(void)
 
     // Turn off Spindle
     // TODO: May need to raise the Z motor if we stop the spindle to prevent it from catching
-    gpio_put(SPINDLE_TOGGLE, false);
+    enable_spindle(false);
     
     // Should we do this?
     drv_enable_driver(false);

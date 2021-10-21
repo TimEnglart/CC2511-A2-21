@@ -28,17 +28,11 @@
 typedef unsigned char uint8_t;
 
 
-
-void drv_set_enabled(uint8_t gpio_pin, bool enabled);
-char drv_has_fault(uint8_t gpio_pin);
-void drv_reset(uint8_t gpio_pin, bool reset_state);
-void drv_sleep(uint8_t gpio_pin, bool sleep_state);
-
 // Determine the Percentage of a step based on the active modes
 float drv_determine_step(bool mode_0, bool mode_1, bool mode_2);
 
 // Determine the mode basic mode requried based on the step you want to perform
-// Returns an byte where bit 1 is mode_0, 2 is mode_1, 3 is mode_2
+// Returns an byte where bit 1 is mode_2, 2 is mode_1, 3 is mode_0
 uint8_t drv_determine_mode(float step);
 
 // Determine the Actual step count based on the number of steps at a certain step

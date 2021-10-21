@@ -81,12 +81,20 @@ typedef struct {
     // The Current Location of the Axis in Microsteps
     float drv_x_location, drv_y_location, drv_z_location;
 
+    // The Future absolute location based on upcoming movements
+    float drv_x_location_pending, drv_y_location_pending, drv_z_location_pending;
+
+    // The Currently Enabled Modes
+    bool mode_0, mode_1, mode_2;
+
+    // The state of the Spindle
+    bool spindle_enabled;
+
+    // The Queue that contains all of the future movements for the steppers
     drv_queue_t step_queue;
 
-    /* I dont know if these should be used as they can be fetched via functions */
-
     // is the motor enabled
-    bool drv_x_enabled, drv_y_enabled, drv_z_enabled;
+    bool drv_enabled;
 
     // Motor Direction
     bool drv_x_direction, drv_y_direction, drv_z_direction;
@@ -97,8 +105,6 @@ typedef struct {
 // Contains values that track changes during runtime
 extern PICO_STATE pico_state;
 
-// (Helper Function) Intitialise a Pin for PWM.
-void pico_pwm_init(uint gpio, uint pwm_wrap);
 // (Helper Function) Intitialise UART on the PICO.
 void pico_uart_init(irq_handler_t handler);
 // (Helper Function) Initialise Multiple Pins without needing a mask
@@ -107,12 +113,21 @@ void pico_gpio_init(int n_pins, ...);
 void pico_uart_deinit(void);
 
 
+// Toggle the Spindle Motor
+void enable_spindle(bool enabled);
+// Set the Mode for the DRV's
+void drv_set_mode(bool mode_0, bool mode_1, bool mode_2);
+// Set the Direction for a DRV
+void drv_set_direction(DRV_DRIVER axis, bool direction);
+
+// Finds the Optimal modes and Direction to get the specified absolute position
+void drv_go_to_position(float x, float y, float z);
+// Appends the Given values onto the existing position
+void drv_append_position(float x, float y, float z);
+
+
 // Enable All DRV Drivers
 void drv_enable_driver(bool enabled);
-// Step the given axis driver by one increment, set direction
-void drv_step_driver(DRV_DRIVER axis, bool direction);
-// Setup the Driver (PWM) for the provided axis
-void drv_setup_driver(DRV_DRIVER axis, irq_handler_t on_pwm_wrap);
 // Returns the STEP gpio pin for the given axis (STEP + 1 For the Direction of the Axis)
 char drv_get_axis_pin(DRV_DRIVER axis);
 
