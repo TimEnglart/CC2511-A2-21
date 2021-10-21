@@ -76,6 +76,7 @@ void queue_push(drv_queue_t *queue, drv_queue_node_t* node)
 void queue_init(drv_queue_t *queue)
 {
     mutex_init(&queue->queue_lock);
+    queue->length = 0;
     queue_enable(queue, true);
 }
 

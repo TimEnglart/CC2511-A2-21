@@ -54,7 +54,7 @@
 
 
 #define GPIO_OUTPUT_PINS \
-    (1 << DRV_RESET)         |\
+    (1 << DRV_RESET)        |\
     (1 << DRV_SLEEP)        |\
     (1 << DRV_DECAY)        |\
     (1 << DRV_ENABLE)       |\
@@ -78,8 +78,8 @@
 typedef enum { X, Y, Z } DRV_DRIVER;
 
 typedef struct {
-    // The Current Location of the Axis
-    unsigned int drv_x_location, drv_y_location, drv_z_location;
+    // The Current Location of the Axis in Microsteps
+    float drv_x_location, drv_y_location, drv_z_location;
 
     drv_queue_t step_queue;
 
@@ -93,6 +93,8 @@ typedef struct {
 
 } PICO_STATE;
 
+// The current state of the program
+// Contains values that track changes during runtime
 extern PICO_STATE pico_state;
 
 // (Helper Function) Intitialise a Pin for PWM.

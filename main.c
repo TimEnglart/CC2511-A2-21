@@ -20,7 +20,7 @@ TODO LIST
 /*
   NOTES
 
-  Origin of the Stepper is assumed to 0,0,0 (Therefore the smallest value can be 0)
+  Origin of the Stepper is assumed to 0,0,0 (Therefore the smallest value can be 0. Top Left Placement with max Z height) 
 */
 
 #include <stdbool.h>
@@ -34,9 +34,14 @@ TODO LIST
 #include "pico/multicore.h"
 #include "terminal.h"
 
+// Wait for Interrupt to process the step queue. Comment out define to just sleep
+#define WAIT_FOR_INTERRUPT_CORE_1
+
 // Foward Declaration so that main stays at the top
 void thread_main(void);
 
+// Core 1
+bool stop_processing;
 
 int main(void) {
   // Enable Standard I/O Functionality
@@ -65,57 +70,14 @@ int main(void) {
   generate_menus();
   // Print the Menu to Screen
   draw_menu();
-  
-  // Keep a local pointer and value to track what we have rendered vs the state of the actual menu
-  struct menu_node *local_current_menu = current_menu;
-  char local_previous_selection = current_menu->previous_selection;
 
   while (true) {
     __wfi(); // Wait for Interrupt
-
-
-    // Have moved the menu logic outside of the IRQ. Idk how much this will help
-    // Just some best practice even though it may make it a bit harder to follow
-    if(current_menu != local_current_menu) // Compare pointer addresses of the menus
-    {
-      if(!current_menu) // We have exited the menu
-      {
-        term_cls();
-        break;
-      }
-      // We have changed Menus
-      // Basically C+P'd from go_to_menu without the pointer update
-      draw_menu();
-      
-      // Clear the Overflowed Options
-      // eg. Menu 1 has 7 Options & Menu 2 has 5 Options. The 6th and 7th option will remain on Menu 2. Remove them
-      for (char i = current_menu->options_length; i < local_current_menu->options_length; i++)
-      {
-        term_move_to(0, OPTIONS_START_Y + i);
-        term_erase_line();
-      }
-      
-      local_current_menu = current_menu;
-      local_previous_selection = current_menu->previous_selection;
-    }
-    else if(current_menu->previous_selection != local_previous_selection) // If there is a selection change
-    {
-      // We have Remained in the same menu and Selection has been updated
-      update_selection();
-      local_previous_selection = current_menu->previous_selection;
-    }
-    else if(current_menu->selected_function)
-    {
-      // We have been given a function pointer to execute
-      current_menu->selected_function();
-      current_menu->selected_function = 0;
-    }
-    // Something else has happened
+    // Do All the Logic in the Interrupt as we are not using the main loop for anything else
   }
 
   // Reset Position of Steppers
-  // queue_enable(&pico_state.step_queue, false);
-  // Get the Amount of Whole steps to get back to origin
+  // Get the Amount of Whole steps to get back to origin. int cast should floor
   int x_steps = (int)pico_state.drv_x_location;
   int y_steps = (int)pico_state.drv_y_location;
   int z_steps = (int)pico_state.drv_z_location;
@@ -130,7 +92,18 @@ int main(void) {
     .mode_1 = 0,
     .mode_2 = 0
   };
-  // TOOD: Do Z microsteps to get back to 0
+
+  // Get the Remaining Z Microsteps
+  float z_steps_remainder = pico_state.drv_z_location - z_steps;
+  uint8_t z_remainder_modes = drv_determine_mode(z_steps_remainder);
+  drv_queue_node_t reset_z_remainder = {
+    .z_steps = drv_step_amount_masked(z_steps_remainder, z_remainder_modes),
+    .z_dir = false,
+    .mode_0 = GET_BIT_N(z_remainder_modes, 1),
+    .mode_1 = GET_BIT_N(z_remainder_modes, 2),
+    .mode_2 = GET_BIT_N(z_remainder_modes, 3)
+  };
+
 
   drv_queue_node_t reset_x_y = {
     .x_steps = x_steps,
@@ -143,13 +116,40 @@ int main(void) {
     .mode_1 = 0,
     .mode_2 = 0
   };
-  // TOOD: Do Y & Y microsteps to get back to 0
+  
+  // Get Microsteps for X & Y
+  // Could move these into 1 operation but I don't want to go through the effort to
+  // get the lowest common step between them. 
+  // (Well I guess I could just use the step that is the smallest and then multiply the steps by the division between the 2 step amounts of the remainder)
+  // stepCountH = stepCountH * (stepAmountH / stepAmountL)
+  // OR have split modes
+  float x_steps_remainder = pico_state.drv_x_location - x_steps;
+  uint8_t x_remainder_modes = drv_determine_mode(x_steps_remainder);
+  drv_queue_node_t reset_x_remainder = {
+    .x_steps = drv_step_amount_masked(x_steps_remainder, x_remainder_modes),
+    .x_dir = false,
+    .mode_0 = GET_BIT_N(x_remainder_modes, 1),
+    .mode_1 = GET_BIT_N(x_remainder_modes, 2),
+    .mode_2 = GET_BIT_N(x_remainder_modes, 3)
+  };
+  float y_steps_remainder = pico_state.drv_y_location - y_steps;
+  uint8_t y_remainder_modes = drv_determine_mode(y_steps_remainder);
+  drv_queue_node_t reset_y_remainder = {
+    .y_steps = drv_step_amount_masked(y_steps_remainder, y_remainder_modes),
+    .y_dir = false,
+    .mode_0 = GET_BIT_N(y_remainder_modes, 1),
+    .mode_1 = GET_BIT_N(y_remainder_modes, 2),
+    .mode_2 = GET_BIT_N(y_remainder_modes, 3)
+  };
 
   queue_push(&pico_state.step_queue, &reset_z);
+  queue_push(&pico_state.step_queue, &reset_z_remainder);
   queue_push(&pico_state.step_queue, &reset_x_y);
+  queue_push(&pico_state.step_queue, &reset_x_remainder);
+  queue_push(&pico_state.step_queue, &reset_y_remainder);
 
-  // queue_enable(&pico_state.step_queue, true);
-
+  // Disable the Processing Core
+  stop_processing = true;
 
   // Disable UART
   pico_uart_deinit();
@@ -160,8 +160,17 @@ int main(void) {
 
 void thread_main(void)
 {
-  while(true)
+  while(!stop_processing)
   {
+    #ifdef WAIT_FOR_INTERRUPT_CORE_1
+    // Want this at the top so that we can process data before we exit
+    __wfi(); // Should be fine to wait for interrupt as UART is how data is being delievered
+    // If this is to become a problem we could probably implement a mock interrupt that just returns
+    // Or just ignore and not be battery efficient.
+    #else
+      sleep_ms(1000);
+    #endif
+
     while(!queue_is_empty(&pico_state.step_queue) && pico_state.step_queue.running)
     {
       // Setup Information needed for step
@@ -214,7 +223,6 @@ void thread_main(void)
         // The 2 Sleeps will generate our frequency (see figure 1. in Data Sheet)
         // As long as the overall time is larger than ~4us we are within the allowed frequency 
 
-
         // Update the State of the PICO's Step Counter
         if(GET_BIT_N(step_mask, DRV_X_STEP))
           pico_state.drv_x_location += (node.x_dir ? 1 : -1) * step_size;
@@ -229,13 +237,9 @@ void thread_main(void)
 
     // Turn off Spindle
     // TODO: May need to raise the Z motor if we stop the spindle to prevent it from catching
-    // gpio_put(SPINDLE_TOGGLE, false);
+    gpio_put(SPINDLE_TOGGLE, false);
     
     // Should we do this?
     drv_enable_driver(false);
-
-    __wfi(); // Should be fine to wait for interrupt as UART is how data is being delievered
-    // If this is to become a problem we could probably implement a mock interrupt that just returns
-    // Or just ignore and not be battery efficient.
   }
 }
