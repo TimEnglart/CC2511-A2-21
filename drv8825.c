@@ -1,5 +1,6 @@
 #include "drv8825.h"
 #include "pico.h"
+#include <math.h>
 
 void drv_set_enabled(uint8_t gpio_pin, bool enabled)
 {
@@ -21,8 +22,42 @@ float drv_determine_step(bool mode_0, bool mode_1, bool mode_2)
     else
         return 0.03125; // 32 microsteps/step
 }
+uint8_t drv_determine_mode(float step)
+{
+    // Get the largest microstep mode that has no remainder
+    // Basically the inverse of drv_determine_step
+    if(!fmod(step, 1))
+        return 0b0; 
+    else if(!fmod(step, 0.5))
+        return 0b100;
+    else if(!fmod(step, 0.25))
+        return 0b010;
+     else if(!fmod(step, 0.125))
+        return 0b110;
+    else if(!fmod(step, 0.0625))
+        return 0b001;
+    else if(!fmod(step, 0.03125))
+        return 0b111;
+}
 
 float drv_determine_distance(float step_amount, unsigned int n_steps)
 {
     return step_amount * n_steps;
+}
+
+int drv_step_amount(float distance, bool mode_0, bool mode_1, bool mode_2)
+{
+    int step_counter = 0;
+    float step_amount = drv_determine_step(mode_0, mode_1, mode_2);
+    for(float i = 0; i < distance; i += step_amount)
+        step_counter++;
+    return step_counter;
+}
+int drv_step_amount_masked(float distance, uint8_t mode_mask)
+{
+    return drv_step_amount(distance, 
+        GET_BIT_N(mode_mask, 1), 
+        GET_BIT_N(mode_mask, 2), 
+        GET_BIT_N(mode_mask, 3)
+    );
 }

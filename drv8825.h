@@ -36,7 +36,17 @@ void drv_sleep(uint8_t gpio_pin, bool sleep_state);
 
 // Determine the Percentage of a step based on the active modes
 float drv_determine_step(bool mode_0, bool mode_1, bool mode_2);
+
+// Determine the mode basic mode requried based on the step you want to perform
+// Returns an byte where bit 1 is mode_0, 2 is mode_1, 3 is mode_2
+uint8_t drv_determine_mode(float step);
+
 // Determine the Actual step count based on the number of steps at a certain step
 float drv_determine_distance(float step_amount, unsigned int n_steps);
+
+// Determine the amount of steps required for a certain distance in the provided mode
+int drv_step_amount(float distance, bool mode_0, bool mode_1, bool mode_2);
+int drv_step_amount_masked(float distance, uint8_t mode_mask);
+
 
 #endif // DRV8825_H
