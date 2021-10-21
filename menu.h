@@ -27,7 +27,6 @@ struct menu_node {
     char current_selection; // the currently selected options index
     char previous_selection; // the previously selected option index (So we dont need to redraw the entire screen) 
     char (*override_irq)(char); // IRQ Override function which allows menu to handle its own keypresses. Return 0 if character not handled, non-zero if handled
-    volatile void (*selected_function)(void); // The Function that needs to be exectued as a selection has occurred
 };
 
 // The UART IRQ Handler (duh). Handles the UART Inputs received.

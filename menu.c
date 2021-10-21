@@ -22,13 +22,15 @@ void uart_irq_handler(void)
 {
   while (uart_is_readable(PICO_UART_ID))
   {
+    if(!current_menu)
+      return;
+
     char ch = uart_getc(PICO_UART_ID);
 
     // Let the Menu Handle Key Presses / Exit if it has handled the keypress
     if (current_menu->override_irq && current_menu->override_irq(ch))
       return;
-
-    pending_character_buffer[pending_character_buffer_index++] = ch;
+    
     switch (ch)
     {
     // Navigation
@@ -37,7 +39,7 @@ void uart_irq_handler(void)
       {
         current_menu->previous_selection = current_menu->current_selection;
         current_menu->current_selection--;
-        // update_selection();
+        update_selection();
       }
       break;
     case 's':
@@ -45,7 +47,7 @@ void uart_irq_handler(void)
       {
         current_menu->previous_selection = current_menu->current_selection;
         current_menu->current_selection++;
-        // update_selection();
+        update_selection();
       }
       break;
 
@@ -64,9 +66,8 @@ void uart_irq_handler(void)
     // Backspace
     case '\b':
     case 0x7f:
-      // if there is a previous menu go back
-      //if (current_menu->previous_menu)
-      current_menu = current_menu->previous_menu;
+      // Beware: This can go back to an undefined menu
+      go_to_menu(current_menu->previous_menu);
       break;
 
     // Enter
@@ -75,7 +76,7 @@ void uart_irq_handler(void)
     case '\n':
       // Run the Selection Function for the current Menu Option 
       if (current_menu->options[current_menu->current_selection].on_select)
-        current_menu->selected_function = current_menu->options[current_menu->current_selection].on_select;
+        current_menu->options[current_menu->current_selection].on_select();
       break;
     default: // On non-special key
       break;
@@ -178,37 +179,42 @@ void go_to_menu(struct menu_node *menu)
   // Clear the Options, Not the Entire Menu
   struct menu_node *previous_menu = current_menu;
   current_menu = menu;
-  draw_menu();
-  
-  // Clear the Overflowed Options
-  // eg. Menu 1 has 7 Options & Menu 2 has 5 Options. The 6th and 7th option will remain on Menu 2. Remove them
-  for (int i = current_menu->options_length; i < previous_menu->options_length; i++)
-  {
-    term_move_to(0, OPTIONS_START_Y + i);
-    term_erase_line();
+  if(menu)
+  {  
+    // Clear the Overflowed Options
+    // eg. Menu 1 has 7 Options & Menu 2 has 5 Options. The 6th and 7th option will remain on Menu 2. Remove them
+    for (int i = current_menu->options_length; i < previous_menu->options_length; i++)
+    {
+      term_move_to(0, OPTIONS_START_Y + i);
+      term_erase_line();
+    }
+
+    draw_menu();
   }
+  else term_cls();
 }
 
-void first_option(void)
+void go_to_free_draw(void)
 {
-  printf("Selected Option: %s", current_menu->options[current_menu->current_selection].option_text);
+  go_to_menu(free_draw_menu);
 }
-void go_to_second_menu(void)
+void go_to_predefined_draw(void)
 {
-  drv_queue_node_t node =
-  {
-    .x_steps = 4
-  };
-  queue_push(&pico_state.step_queue, &node);
-  write_debug("%d", pico_state.step_queue.length);
+  go_to_menu(predefined_draw_menu);
 }
-void second_option(void)
+void go_to_debug(void)
 {
-  printf(":)");
+  go_to_menu(debug_menu);
 }
 
+// Handle Keypresses for free drawing
 char free_draw_irq(char ch) 
 {
+  /*
+    Menu Description:
+    Allows the user to use the uart keyboard to step the motors
+  */
+
   // Statically Allocate our scoped variables that our function relies on
   static int x, y, z;
 
@@ -230,6 +236,93 @@ char free_draw_irq(char ch)
   default:
     return 0;
   }
+  return 1;
+}
+
+// Handle Keypresses for predefined drawing
+char predefined_draw_irq(char ch) 
+{
+  /*
+    Menu Description:
+    Allows for predefined coordinates to be used for drawing or
+    Pass Custom Coords to the queue
+  */
+  switch (ch)
+  {
+  case 'w':
+    
+    break;
+  case 's':
+    
+    break;
+  case 'a':
+    
+    break;
+  case 'd':
+    
+    break;
+  
+  default:
+    return 0;
+  }
+  return 1;
+}
+
+void debug_change(bool increment)
+{
+  switch (current_menu->current_selection)
+  {
+  case 0: // DRV_X_LOC
+    break;
+  case 1: // DRV_X_DIR
+    break;
+  case 2: // DRV_Y_LOC
+    break;
+  case 3: // DRV_Y_DIR
+    break;
+  case 4: // DRV_Z_LOC
+    break;
+  case 5: // DRV_Z_DIR
+    break;
+  case 6: // DRV_ENABLE
+    break;
+  case 7: // DRV_DECAY
+    break;
+  case 8: // DRV_RESET
+    break;
+  case 9: // DRV_SLEEP
+    break;
+  case 10: // MODE_0
+    break;
+  case 11: // MODE_1
+    break;
+  case 12: // MODE_2
+    break;
+  case 13: // SPINDLE_TOGGLE
+    break;
+  
+  default:
+    break;
+  }
+}
+// Handle Keypresses on the debug menu 
+char debug_irq(char ch) 
+{
+  /*
+    Menu Description:
+    This menu bascially allows the user to change many of the state variables within the program
+  */
+
+  switch (ch)
+  {
+  case 'a':
+  case 'd':
+    debug_change(ch == 'd');
+    break;
+  default:
+    return 0;
+  }
+  return 1;
 }
 
 void generate_menus(void)
@@ -245,85 +338,75 @@ void generate_menus(void)
   // Main Menu
   struct menu_option main_menu_options[] = {
     {
-      .on_select = first_option,
+      .on_select = go_to_free_draw,
       .option_text = "Free Draw"
     },
     {
-      .on_select = first_option,
+      .on_select = go_to_predefined_draw,
       .option_text = "Predefined Draw"
     },
     {
-      .on_select = go_to_second_menu,
+      .on_select = go_to_debug,
       .option_text = "Debug"
     }
   };
 
   create_menu(main_menu, "Main Menu", 0, LENGTH_OF_ARRAY(main_menu_options), main_menu_options);
 
-
   // Free Draw Menu
   create_menu(free_draw_menu, "Free Draw", main_menu, 0, 0);
   free_draw_menu->override_irq = free_draw_irq; // Custom UART IRQ Handler
   // Predefined Draw ()
+
   create_menu(predefined_draw_menu, "Predefined Draw", main_menu, 0, 0);
-  // Debug menu
-  /*
-    What Debug Values do we want
-    - DRV_[AXIS]_LOCATION (Counter + Updatable)
-    - DRV_[AXIS]_DIRECTION (Counter + Updatable)
-    - DRV_[AXIS]_PWM (Is The PWM IRQ running)
-    - DRV_[STATUS] (Enable, Decay, Reset, Sleep, MODES, etc)
+  predefined_draw_menu->override_irq = predefined_draw_irq;
 
-
-    - SPINDLE_STATUS (Toggleable)
-
-    - PICO_MEMORY_USAGE
-
-
-  */
   struct menu_option debug_menu_options[] = {
     {
-      .option_text = "DRV_X_LOCATION"
+      .option_text = "[-] DRV_X_LOCATION [+]"
     },
     {
-      .option_text = "DRV_X_DIRECTION"
+      .option_text = "[-] DRV_X_DIRECTION [+]"
     },
     {
-      .option_text = "DRV_Y_LOCATION"
+      .option_text = "[-] DRV_Y_LOCATION [+]"
     },
     {
-      .option_text = "DRV_Y_DIRECTION"
+      .option_text = "[-] DRV_Y_DIRECTION [+]"
     },
     {
-      .option_text = "DRV_Z_LOCATION"
+      .option_text = "[-] DRV_Z_LOCATION [+]"
     },
     {
-      .option_text = "DRV_Z_DIRECTION"
+      .option_text = "[-] DRV_Z_DIRECTION [+]"
     },
     {
-      .option_text = "DRV_ENABLE"
+      .option_text = "[-] DRV_ENABLE [+]"
     },
     {
-      .option_text = "DRV_DECAY"
+      .option_text = "[-] DRV_DECAY [+]"
     },
     {
-      .option_text = "DRV_RESET"
+      .option_text = "[-] DRV_RESET [+]"
     },
     {
-      .option_text = "DRV_SLEEP"
+      .option_text = "[-] DRV_SLEEP [+]"
     },
     {
-      .option_text = "DRV_MODE_0"
+      .option_text = "[-] DRV_MODE_0 [+]"
     },
     {
-      .option_text = "DRV_MODE_1"
+      .option_text = "[-] DRV_MODE_1 [+]"
     },
     {
-      .option_text = "DRV_MODE_2"
+      .option_text = "[-] DRV_MODE_2 [+]"
+    },
+    {
+      .option_text = "[-] SPINDLE_STATUS [+]"
     }
   };
   create_menu(debug_menu, "Debug", main_menu, LENGTH_OF_ARRAY(debug_menu_options), debug_menu_options);
-
+  debug_menu->override_irq = debug_irq;
   // Set The Current Menu to Main Menu
   current_menu = main_menu;
 }
@@ -331,6 +414,12 @@ void generate_menus(void)
 void release_menus(void)
 {
   // Some how dynamically free all Items.
+  free(debug_menu->options);
+  free(debug_menu);
+  
+  free(free_draw_menu->options);
+  free(free_draw_menu);
+
   free(main_menu->options);
   free(main_menu);
 }
