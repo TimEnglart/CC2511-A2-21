@@ -32,7 +32,7 @@ typedef unsigned char uint8_t;
 float drv_determine_step(bool mode_0, bool mode_1, bool mode_2);
 
 // Determine the mode basic mode requried based on the step you want to perform
-// Returns an byte where bit 1 is mode_2, 2 is mode_1, 3 is mode_0
+// Returns an byte where bit 1 is mode_2, 2 is mode_1, 3 is mode_0, 4 is invalid step
 uint8_t drv_determine_mode(float step);
 
 // Determine the Actual step count based on the number of steps at a certain step

@@ -33,6 +33,8 @@ uint8_t drv_determine_mode(float step)
         return 0b100;
     else if(!fmodf(step, 0.03125))
         return 0b111;
+    
+    return 0b1000; // No Valid Step Increment Found
 }
 
 float drv_determine_distance(float step_amount, unsigned int n_steps)
@@ -42,11 +44,7 @@ float drv_determine_distance(float step_amount, unsigned int n_steps)
 
 int drv_step_amount(float distance, bool mode_0, bool mode_1, bool mode_2)
 {
-    int step_counter = 0;
-    float step_amount = drv_determine_step(mode_0, mode_1, mode_2);
-    for(float i = 0; i < distance; i += step_amount)
-        step_counter++;
-    return step_counter;
+    return distance / drv_determine_step(mode_0, mode_1, mode_2);
 }
 int drv_step_amount_masked(float distance, uint8_t mode_mask)
 {
