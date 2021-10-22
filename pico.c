@@ -108,13 +108,17 @@ void drv_enable_driver(bool enabled)
             Internal pulldown.
     */
 
-    // Are Sleeps Required Between the Changes Based on Datasheet or just before you send a step signal?
-    gpio_put(DRV_SLEEP, enabled); // Make the Device Awake.
-    sleep_ms(2);
-    gpio_put(DRV_ENABLE, !enabled); // Make Sure it is giving outputs
-    sleep_us(1);
-    gpio_put(DRV_RESET, enabled); // Enable HBridge Outputs
-    pico_state.drv_enabled = enabled;
+    if(pico_state.drv_enabled != enabled)
+    {
+        // Are Sleeps Required Between the Changes Based on Datasheet or just before you send a step signal?
+
+        gpio_put(DRV_SLEEP, enabled); // Make the Device Awake.
+        sleep_ms(2);
+        gpio_put(DRV_ENABLE, !enabled); // Make Sure it is giving outputs
+        sleep_us(1);
+        gpio_put(DRV_RESET, enabled); // Enable HBridge Outputs
+        pico_state.drv_enabled = enabled;
+    }
 }
 
 void drv_append_position(float x, float y, float z)
@@ -129,11 +133,22 @@ void drv_append_position(float x, float y, float z)
 // X, Y, Z should be absolute values here
 void drv_go_to_position(float x, float y, float z)
 {
-    // TODO: Check to see if the new positions underflow/overflow the area that the steppers operate in
-    // e.g. Going below 0 or going over the maximum number of steps (currently unknown)
+    // Handle Position Overflows
+    // Check if new location is more than the defined MAX_STEPS
+    // Example:
+    // x = 20, DRV_X_MAX_STEPS = 10, current_x = 2
+    // We would want to clamp x to 8
+    // This would be achieved by DRV_X_MAX_STEPS - current_x
+    if(x > DRV_X_MAX_STEPS) x = DRV_X_MAX_STEPS - pico_state.drv_x_location_pending;
+    if(y > DRV_Y_MAX_STEPS) y = DRV_Y_MAX_STEPS - pico_state.drv_y_location_pending;
+    if(z > DRV_Z_MAX_STEPS) z = DRV_Z_MAX_STEPS - pico_state.drv_z_location_pending;
 
-    // TODO: Validate that the provided position is within the allowed stepping range (as position is steps)
-    // e.g. The new position is divisible by 0.03125 (32 microsteps)
+    // Handle Position Underflow
+    // TODO: Maybe add a define for DRV_?_MIN_STEPS for ease of extension (but we are using zero so nah)
+    // Check if new location less than 0 (which is our minimum position value)
+    if(x < 0) x = 0;
+    if(y < 0) y = 0;
+    if(z < 0) z = 0;
 
     // For Each Axis Determine the Direction
     bool x_dir = pico_state.drv_x_location_pending <= x,
@@ -141,12 +156,14 @@ void drv_go_to_position(float x, float y, float z)
         z_dir = pico_state.drv_z_location_pending <= z;
 
     // For Each Axis Determine the Distance Required
+    // As we have calculated the direction 
+    // get the absolute distance between the current axis vs where we want to be
     float x_distance = fabsf(pico_state.drv_x_location_pending - x),
         y_distance = fabsf(pico_state.drv_y_location_pending - y),
         z_distance = fabsf(pico_state.drv_z_location_pending - z);
 
     // For Each Axis Determine the Mode Required
-    uint8_t x_mode = drv_determine_mode(x_distance),
+    int8_t x_mode = drv_determine_mode(x_distance),
         y_mode = drv_determine_mode(y_distance),
         z_mode = drv_determine_mode(z_distance);
 
@@ -154,6 +171,12 @@ void drv_go_to_position(float x, float y, float z)
     uint8_t mode_mask = x_mode;
     if (y_mode > mode_mask) mode_mask = y_mode;
     if (z_mode > mode_mask) mode_mask = z_mode;
+
+    // Validate that the provided position is within the allowed stepping range (as position is steps)
+    // e.g. The new position is divisible by 0.03125 (32 microsteps)
+    // Check the Error bit of the mode_mask
+    if(GET_BIT_N(mode_mask, 4))
+        return; // TODO: Find a better way to display this error
 
     // Update the pending locations
     pico_state.drv_x_location_pending = x;

@@ -50,6 +50,11 @@
 // Max Frequncy is 250kHz, use 200kHz
 #define DRV_STEP_FREQUENCY  200000
 
+// TODO: Get the Max Steps Possible for each axis
+#define DRV_X_MAX_STEPS 10
+#define DRV_Y_MAX_STEPS 10
+#define DRV_Z_MAX_STEPS 10
+
 
 #define GPIO_OUTPUT_PINS \
     (1 << DRV_RESET)        |\
