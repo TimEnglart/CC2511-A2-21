@@ -29,7 +29,11 @@ void uart_irq_handler(void)
 
     // Let the Menu Handle Key Presses / Exit if it has handled the keypress
     if (current_menu->override_irq && current_menu->override_irq(ch))
+    {
+      print_pico_state();
       return;
+    }
+      
     
     switch (ch)
     {
@@ -75,7 +79,7 @@ void uart_irq_handler(void)
     case '\r':
     case '\n':
       // Run the Selection Function for the current Menu Option 
-      if (current_menu->options[current_menu->current_selection].on_select)
+      if (current_menu->options_length && current_menu->options[current_menu->current_selection].on_select)
         current_menu->options[current_menu->current_selection].on_select();
       break;
     default: // On non-special key
@@ -104,6 +108,8 @@ void update_selection(void)
 
 void draw_menu(void)
 {
+  print_pico_state();
+
   // Draw Program Title
   term_move_to(0, 0);
   term_erase_line();
@@ -221,16 +227,16 @@ char free_draw_irq(char ch)
   switch (ch)
   {
   case 'w':
-    
+    drv_append_position(0, 1, 0);
     break;
   case 's':
-    
+    drv_append_position(0, -1, 0);
     break;
   case 'a':
-    
+    drv_append_position(-1, 0, 0);
     break;
   case 'd':
-    
+    drv_append_position(1, 0, 0);
     break;
   
   default:
@@ -312,6 +318,7 @@ char debug_irq(char ch)
     Menu Description:
     This menu bascially allows the user to change many of the state variables within the program
   */
+
 
   switch (ch)
   {
@@ -434,4 +441,52 @@ void write_debug(const char *format, ...)
   va_start(args, format);
   printf(format, args);
   va_end(args);
+}
+
+void print_pico_state(void)
+{
+  term_move_to(0, text_output_y + 5);
+  term_set_color(clrGreen, clrBlack);
+  term_erase_line();
+  printf("X: %.5f | Y: %.5f | Z: %.5f", 
+    pico_state.drv_x_location, 
+    pico_state.drv_y_location, 
+    pico_state.drv_z_location
+  );
+
+  term_move_to(0, text_output_y + 6);
+  term_set_color(clrGreen, clrBlack);
+  term_erase_line();
+    printf("<X>: %.5f | <Y>: %.5f | <Z>: %.5f", 
+    pico_state.drv_x_location_pending, 
+    pico_state.drv_y_location_pending, 
+    pico_state.drv_z_location_pending
+  );
+
+  term_move_to(0, text_output_y + 7);
+  term_set_color(clrGreen, clrBlack);
+  term_erase_line();
+    printf("m_0: %d | m_1: %d | m_2: %d", 
+    pico_state.mode_0, 
+    pico_state.mode_1, 
+    pico_state.mode_2
+  );
+
+  term_move_to(0, text_output_y + 8);
+  term_set_color(clrGreen, clrBlack);
+  term_erase_line();
+    printf("x_dir: %d | y_dir: %d | z_dir: %d", 
+    pico_state.drv_x_direction, 
+    pico_state.drv_y_direction, 
+    pico_state.drv_z_direction
+  );
+
+  term_move_to(0, text_output_y + 9);
+  term_set_color(clrGreen, clrBlack);
+  term_erase_line();
+    printf("!drv!: %d | !spindle!: %d | queue: %d", 
+    pico_state.drv_enabled, 
+    pico_state.spindle_enabled,
+    pico_state.step_queue.length
+  );
 }
