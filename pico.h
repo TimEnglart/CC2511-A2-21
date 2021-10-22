@@ -47,6 +47,11 @@
 
 #define SPINDLE_TOGGLE      16
 
+#define PROCESS_QUEUE       21
+// Wait for Interrupt to process the step queue. Comment out define to just sleep
+#define WAIT_FOR_INTERRUPT_CORE_1
+
+
 // Max Frequncy is 250kHz, use 200kHz
 #define DRV_STEP_FREQUENCY  200000
 

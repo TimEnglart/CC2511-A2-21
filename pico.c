@@ -130,18 +130,14 @@ void drv_append_position(float x, float y, float z)
     );
 }
 
-// X, Y, Z should be absolute values here
+// NOTE: X, Y, Z should be absolute values here (not relative)
 void drv_go_to_position(float x, float y, float z)
 {
     // Handle Position Overflows
     // Check if new location is more than the defined MAX_STEPS
-    // Example:
-    // x = 20, DRV_X_MAX_STEPS = 10, current_x = 2
-    // We would want to clamp x to 8
-    // This would be achieved by DRV_X_MAX_STEPS - current_x
-    if(x > DRV_X_MAX_STEPS) x = DRV_X_MAX_STEPS - pico_state.drv_x_location_pending;
-    if(y > DRV_Y_MAX_STEPS) y = DRV_Y_MAX_STEPS - pico_state.drv_y_location_pending;
-    if(z > DRV_Z_MAX_STEPS) z = DRV_Z_MAX_STEPS - pico_state.drv_z_location_pending;
+    if(x > DRV_X_MAX_STEPS) x = DRV_X_MAX_STEPS;
+    if(y > DRV_Y_MAX_STEPS) y = DRV_Y_MAX_STEPS;
+    if(z > DRV_Z_MAX_STEPS) z = DRV_Z_MAX_STEPS;
 
     // Handle Position Underflow
     // TODO: Maybe add a define for DRV_?_MIN_STEPS for ease of extension (but we are using zero so nah)
@@ -196,4 +192,10 @@ void drv_go_to_position(float x, float y, float z)
         .mode_2 = GET_BIT_N(mode_mask, 1)
     };
     queue_push(&pico_state.step_queue, &node);
+    
+    // Send the GPIO Process Signal if we are using Iterrupts
+    #ifdef WAIT_FOR_INTERRUPT_CORE_1
+    gpio_put(PROCESS_QUEUE, 1);
+    gpio_put(PROCESS_QUEUE, 0);
+    #endif
 }

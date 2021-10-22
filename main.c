@@ -31,9 +31,6 @@ TODO LIST
 #include "queue.h"
 #include "terminal.h"
 
-// Wait for Interrupt to process the step queue. Comment out define to just sleep
-#define WAIT_FOR_INTERRUPT_CORE_1
-
 // Foward Declaration so that main stays at the top
 void thread_main(void);
 
@@ -87,11 +84,11 @@ int main(void) {
   // NOTE: Could use drv_go_to_position but need to provide additional pico states which append does for us
   // Step the Z Axis Back to Origin / 0
   // Example: If we are at 73.2 Steps on the Z axis
-  drv_append_position(0, 0, -z_steps); // Will be -73
+  drv_append_position(0, 0, (float)(-z_steps)); // Will be -73
   drv_append_position(0, 0, -pico_state.drv_z_location_pending); // Will be -0.2 as the pending location should be updated
 
   // Step the X & Y Axis Back to Origin / 0
-  drv_append_position(-x_steps, -y_steps, 0);
+  drv_append_position((float)(-x_steps), (float)(-y_steps), 0);
   // The Steps are below 1 so even the lowest chaneg shouldn't matter
   drv_append_position(-pico_state.drv_x_location_pending, -pico_state.drv_y_location_pending, 0);
 
@@ -111,9 +108,26 @@ int main(void) {
   }
 }
 
+void process(uint gpio, uint32_t events)
+{
+  // Using this function to get out of the low power mode
+
+  /*
+    An Alternative to this using RTC (which seems a bit more complex than what we need):
+    https://github.com/raspberrypi/pico-extras/blob/master/src/rp2_common/pico_sleep/sleep.c
+    https://forums.raspberrypi.com/viewtopic.php?t=304815
+  */
+}
 
 void thread_main(void)
 {
+  #ifdef WAIT_FOR_INTERRUPT_CORE_1
+  gpio_init(PROCESS_QUEUE);
+  gpio_set_dir(PROCESS_QUEUE, GPIO_OUT);
+  gpio_pull_up(PROCESS_QUEUE);
+  gpio_set_irq_enabled_with_callback(PROCESS_QUEUE, GPIO_IRQ_EDGE_FALL, true, &process);
+  #endif
+
   while(!stop_processing)
   {
     #ifdef WAIT_FOR_INTERRUPT_CORE_1
@@ -122,7 +136,7 @@ void thread_main(void)
     // If this is to become a problem we could probably implement a mock interrupt that just returns
     // Or just ignore and not be battery efficient.
     #else
-      sleep_ms(1000);
+    sleep_ms(1000);
     #endif
 
     while(!queue_is_empty(&pico_state.step_queue))
@@ -132,14 +146,14 @@ void thread_main(void)
       drv_queue_node_t node;
       queue_pop(&pico_state.step_queue, &node);
 
-      if(!node.initialized)
-      {
-        // We have failed to get the data for the steps.
+      if(!node.initialized) // We have failed to get the data for the steps.
+        continue;    
+
+      // Maybe this should be put in the preprocessing step   
+      if(!node.x_steps && !node.y_steps && !node.z_steps) // There are no steps to be performed
         continue;
-      }         
+
       pico_state.step_queue.processing = true;
-      // TODO: Either put the gpio initialisations in a seperate function w/ the respective sleeps
-      // or add them here
 
       // Get the Step Size
       float step_size = drv_determine_step(node.mode_0, node.mode_1, node.mode_2);
@@ -147,12 +161,12 @@ void thread_main(void)
       // Enable Drivers
       drv_enable_driver(true);
 
-      // Setup Step Directions. TODO: Add Sleeps if needed
+      // Setup Step Directions.
       drv_set_direction(X, node.x_dir);
       drv_set_direction(Y, node.y_dir);
       drv_set_direction(Z, node.z_dir);
 
-      // Setup Mode. TODO: Add Sleeps if needed
+      // Setup Mode.
       drv_set_mode(node.mode_0, node.mode_1, node.mode_2);
 
       // Turn on Spindle
@@ -161,12 +175,12 @@ void thread_main(void)
       // Need to init these initialisers for the loop as they underflow if not assigned
       // Did not know that (actually undefined behaviour)
       // https://stackoverflow.com/questions/21152138/local-variable-initialized-to-zero-in-c
-      for(uint32_t x = 0, y = 0, z = 0; x <= node.x_steps || y <= node.y_steps || z <= node.z_steps; x = y = ++z)
+      for(uint32_t x = 0, y = 0, z = 0; x < node.x_steps || y < node.y_steps || z < node.z_steps; x = y = ++z)
       {
         // Setup Mask for this step
-        SET_BIT_N(step_mask, DRV_X_STEP, x <= node.x_steps);
-        SET_BIT_N(step_mask, DRV_Y_STEP, y <= node.y_steps);
-        SET_BIT_N(step_mask, DRV_Z_STEP, z <= node.z_steps);
+        SET_BIT_N(step_mask, DRV_X_STEP, !!(x < node.x_steps));
+        SET_BIT_N(step_mask, DRV_Y_STEP, !!(y < node.y_steps));
+        SET_BIT_N(step_mask, DRV_Z_STEP, !!(z < node.z_steps));
 
         // Step the Motors
         gpio_put_masked(step_mask, step_mask);
