@@ -195,7 +195,7 @@ void drv_go_to_position(float x, float y, float z)
     
     // Send the GPIO Process Signal if we are using Iterrupts
     #ifdef WAIT_FOR_INTERRUPT_CORE_1
-    gpio_put(PROCESS_QUEUE, 1);
-    gpio_put(PROCESS_QUEUE, 0);
+    gpio_put(PROCESS_QUEUE, GPIO_HIGH);
+    gpio_put(PROCESS_QUEUE, GPIO_LOW);
     #endif
 }

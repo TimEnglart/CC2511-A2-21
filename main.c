@@ -54,8 +54,8 @@ int main(void) {
 
   
   gpio_init(PICO_DEFAULT_LED_PIN);
-  gpio_set_dir(PICO_DEFAULT_LED_PIN, 1);
-  gpio_put(PICO_DEFAULT_LED_PIN, 1);
+  gpio_set_dir(PICO_DEFAULT_LED_PIN, GPIO_OUT);
+  gpio_put(PICO_DEFAULT_LED_PIN, GPIO_HIGH);
 
   // Set Pullups/Pulldowns for pins
   // gpio_set_pulls(DRV_FAULT, 1, 0); //Logic Low when Fault Occurs, Pull Up. No Fault Trace hahaha... :(

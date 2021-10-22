@@ -14,6 +14,9 @@
 #define SET_BIT_N(bitfield, n, value) bitfield = (bitfield & ~(1UL << n)) | (value << n)
 #define GET_BIT_N(bitfield, n) (bitfield >> n) & 1U
 
+#define GPIO_HIGH   1
+#define GPIO_LOW    0
+
 
 
 #define PICO_UART_TX         0
