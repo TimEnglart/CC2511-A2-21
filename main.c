@@ -55,6 +55,10 @@ int main(void) {
   gpio_set_dir_masked(GPIO_OUTPUT_PINS, GPIO_OUTPUT_PINS); // Outputs
   gpio_set_dir_masked(GPIO_INPUT_PINS, ~GPIO_INPUT_PINS); // Inputs
 
+  
+  gpio_init(PICO_DEFAULT_LED_PIN);
+  gpio_set_dir(PICO_DEFAULT_LED_PIN, 1);
+  gpio_put(PICO_DEFAULT_LED_PIN, 1);
 
   // Set Pullups/Pulldowns for pins
   // gpio_set_pulls(DRV_FAULT, 1, 0); //Logic Low when Fault Occurs, Pull Up. No Fault Trace hahaha... :(
@@ -76,78 +80,23 @@ int main(void) {
 
   // Reset Position of Steppers
   // Get the Amount of Whole steps to get back to origin. int cast should floor
-  int x_steps = (int)pico_state.drv_x_location;
-  int y_steps = (int)pico_state.drv_y_location;
-  int z_steps = (int)pico_state.drv_z_location;
+  int x_steps = (int)pico_state.drv_x_location_pending;
+  int y_steps = (int)pico_state.drv_y_location_pending;
+  int z_steps = (int)pico_state.drv_z_location_pending;
 
-  // Seperate the steps into Z then X & Y so that when reseting it doesn't continue to engrave
-  drv_queue_node_t reset_z = {
-    .z_steps = z_steps,
-    .z_dir = false,
+  // NOTE: Could use drv_go_to_position but need to provide additional pico states which append does for us
+  // Step the Z Axis Back to Origin / 0
+  // Example: If we are at 73.2 Steps on the Z axis
+  drv_append_position(0, 0, -z_steps); // Will be -73
+  drv_append_position(0, 0, -pico_state.drv_z_location_pending); // Will be -0.2 as the pending location should be updated
 
-    // Take full steps
-    .mode_0 = 0,
-    .mode_1 = 0,
-    .mode_2 = 0
-  };
-
-  // Get the Remaining Z Microsteps
-  float z_steps_remainder = pico_state.drv_z_location - z_steps;
-  uint8_t z_remainder_modes = drv_determine_mode(z_steps_remainder);
-  drv_queue_node_t reset_z_remainder = {
-    .z_steps = drv_step_amount_masked(z_steps_remainder, z_remainder_modes),
-    .z_dir = false,
-    .mode_0 = GET_BIT_N(z_remainder_modes, 3),
-    .mode_1 = GET_BIT_N(z_remainder_modes, 2),
-    .mode_2 = GET_BIT_N(z_remainder_modes, 1)
-  };
-
-
-  drv_queue_node_t reset_x_y = {
-    .x_steps = x_steps,
-    .x_dir = false,
-    .y_steps = y_steps,
-    .y_dir = false,
-
-    // Take full steps
-    .mode_0 = 0,
-    .mode_1 = 0,
-    .mode_2 = 0
-  };
-  
-  // Get Microsteps for X & Y
-  // Could move these into 1 operation but I don't want to go through the effort to
-  // get the lowest common step between them. 
-  // (Well I guess I could just use the step that is the smallest and then multiply the steps by the division between the 2 step amounts of the remainder)
-  // stepCountH = stepCountH * (stepAmountH / stepAmountL)
-  // OR have split modes
-  float x_steps_remainder = pico_state.drv_x_location - x_steps;
-  uint8_t x_remainder_modes = drv_determine_mode(x_steps_remainder);
-  drv_queue_node_t reset_x_remainder = {
-    .x_steps = drv_step_amount_masked(x_steps_remainder, x_remainder_modes),
-    .x_dir = false,
-    .mode_0 = GET_BIT_N(x_remainder_modes, 3),
-    .mode_1 = GET_BIT_N(x_remainder_modes, 2),
-    .mode_2 = GET_BIT_N(x_remainder_modes, 1)
-  };
-  float y_steps_remainder = pico_state.drv_y_location - y_steps;
-  uint8_t y_remainder_modes = drv_determine_mode(y_steps_remainder);
-  drv_queue_node_t reset_y_remainder = {
-    .y_steps = drv_step_amount_masked(y_steps_remainder, y_remainder_modes),
-    .y_dir = false,
-    .mode_0 = GET_BIT_N(y_remainder_modes, 3),
-    .mode_1 = GET_BIT_N(y_remainder_modes, 2),
-    .mode_2 = GET_BIT_N(y_remainder_modes, 1)
-  };
+  // Step the X & Y Axis Back to Origin / 0
+  drv_append_position(-x_steps, -y_steps, 0);
+  // The Steps are below 1 so even the lowest chaneg shouldn't matter
+  drv_append_position(-pico_state.drv_x_location_pending, -pico_state.drv_y_location_pending, 0);
 
   pico_state.step_queue.processing = true; // bye thread safety
-
-  queue_push(&pico_state.step_queue, &reset_z);
-  queue_push(&pico_state.step_queue, &reset_z_remainder);
-  queue_push(&pico_state.step_queue, &reset_x_y);
-  queue_push(&pico_state.step_queue, &reset_x_remainder);
-  queue_push(&pico_state.step_queue, &reset_y_remainder);
-
+  
   // Disable the Processing Core
   stop_processing = true;
 
@@ -197,7 +146,6 @@ void thread_main(void)
 
       // Enable Drivers
       drv_enable_driver(true);
-
 
       // Setup Step Directions. TODO: Add Sleeps if needed
       drv_set_direction(X, node.x_dir);
