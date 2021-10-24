@@ -3,8 +3,8 @@
 
 #include <stdbool.h>
 
-// TODO: Implement all declared functions
-//      - Refactor if necessary 
+// DRV8825 Related Functions
+// No Dependencies
 
 // Data Sheet: https://www.ti.com/lit/gpn/drv8825
 
