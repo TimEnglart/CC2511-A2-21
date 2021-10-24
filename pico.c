@@ -121,7 +121,7 @@ void drv_enable_driver(bool enabled)
     }
 }
 
-void drv_append_position(float x, float y, float z)
+void drv_append_position(double x, double y, double z)
 {
     return drv_go_to_position(
         pico_state.drv_x_location_pending + x, 
@@ -131,7 +131,7 @@ void drv_append_position(float x, float y, float z)
 }
 
 // NOTE: X, Y, Z should be absolute values here (not relative)
-void drv_go_to_position(float x, float y, float z)
+void drv_go_to_position(double x, double y, double z)
 {
     // Handle Position Overflows
     // Check if new location is more than the defined MAX_STEPS
@@ -154,9 +154,9 @@ void drv_go_to_position(float x, float y, float z)
     // For Each Axis Determine the Distance Required
     // As we have calculated the direction 
     // get the absolute distance between the current axis vs where we want to be
-    float x_distance = fabsf(pico_state.drv_x_location_pending - x),
-        y_distance = fabsf(pico_state.drv_y_location_pending - y),
-        z_distance = fabsf(pico_state.drv_z_location_pending - z);
+    double x_distance = fabs(pico_state.drv_x_location_pending - x),
+        y_distance = fabs(pico_state.drv_y_location_pending - y),
+        z_distance = fabs(pico_state.drv_z_location_pending - z);
 
     // For Each Axis Determine the Mode Required
     int8_t x_mode = drv_determine_mode(x_distance),
@@ -171,7 +171,7 @@ void drv_go_to_position(float x, float y, float z)
     // Validate that the provided position is within the allowed stepping range (as position is steps)
     // e.g. The new position is divisible by 0.03125 (32 microsteps)
     // Check the Error bit of the mode_mask
-    if(GET_BIT_N(mode_mask, 4))
+    if(GET_BIT_N(mode_mask, 3))
         return; // TODO: Find a better way to display this error
 
     // Update the pending locations
@@ -187,9 +187,9 @@ void drv_go_to_position(float x, float y, float z)
         .y_dir = y_dir,
         .z_steps = drv_step_amount_masked(z_distance, mode_mask),
         .z_dir = z_dir,
-        .mode_0 = GET_BIT_N(mode_mask, 3), 
-        .mode_1 = GET_BIT_N(mode_mask, 2), 
-        .mode_2 = GET_BIT_N(mode_mask, 1)
+        .mode_0 = !!(GET_BIT_N(mode_mask, 2)), 
+        .mode_1 = !!(GET_BIT_N(mode_mask, 1)), 
+        .mode_2 = !!(GET_BIT_N(mode_mask, 0))
     };
     queue_push(&pico_state.step_queue, &node);
     

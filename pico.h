@@ -7,12 +7,7 @@
 #include "hardware/uart.h"
 #include "hardware/irq.h"
 #include "queue.h"
-
-#define SET_BIT(bitfield, bit) bitfield |= 1UL << bit
-#define CLEAR_BIT(bitfield, bit) bitfield &= ~(1UL << bit)
-#define TOGGLE_BIT(bitfield, bit) bitfield ^= 1UL << bit;
-#define SET_BIT_N(bitfield, n, value) bitfield = (bitfield & ~(1UL << n)) | (value << n)
-#define GET_BIT_N(bitfield, n) (bitfield >> n) & 1U
+#include "utils.h"
 
 #define GPIO_HIGH   1
 #define GPIO_LOW    0
@@ -90,10 +85,10 @@ typedef enum { X, Y, Z } DRV_DRIVER;
 
 typedef struct {
     // The Current Location of the Axis in Microsteps
-    float drv_x_location, drv_y_location, drv_z_location;
+    double drv_x_location, drv_y_location, drv_z_location;
 
     // The Future absolute location based on upcoming movements
-    float drv_x_location_pending, drv_y_location_pending, drv_z_location_pending;
+    double drv_x_location_pending, drv_y_location_pending, drv_z_location_pending;
 
     // The Currently Enabled Modes
     bool mode_0, mode_1, mode_2;
@@ -132,9 +127,9 @@ void drv_set_mode(bool mode_0, bool mode_1, bool mode_2);
 void drv_set_direction(DRV_DRIVER axis, bool direction);
 
 // Finds the Optimal modes and Direction to get the specified absolute position
-void drv_go_to_position(float x, float y, float z);
+void drv_go_to_position(double x, double y, double z);
 // Appends the Given values onto the existing position
-void drv_append_position(float x, float y, float z);
+void drv_append_position(double x, double y, double z);
 
 
 // Enable All DRV Drivers

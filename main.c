@@ -84,11 +84,11 @@ int main(void) {
   // NOTE: Could use drv_go_to_position but need to provide additional pico states which append does for us
   // Step the Z Axis Back to Origin / 0
   // Example: If we are at 73.25 Steps on the Z axis
-  drv_append_position(0, 0, (float)(-z_steps)); // Will be -73
+  drv_append_position(0, 0, (double)(-z_steps)); // Will be -73
   drv_append_position(0, 0, -pico_state.drv_z_location_pending); // Will be -0.25 as the pending location should be updated
 
   // Step the X & Y Axis Back to Origin / 0
-  drv_append_position((float)(-x_steps), (float)(-y_steps), 0);
+  drv_append_position((double)(-x_steps), (double)(-y_steps), 0);
   // The Steps are below 1 so even the lowest chaneg shouldn't matter
   drv_append_position(-pico_state.drv_x_location_pending, -pico_state.drv_y_location_pending, 0);
 
@@ -153,6 +153,9 @@ void thread_main(void)
       drv_queue_node_t node;
       queue_pop(&pico_state.step_queue, &node);
 
+      // Blink LED to show processing
+      gpio_put(PICO_DEFAULT_LED_PIN, GPIO_LOW);
+
       if(!node.initialized) // We have failed to get the data for the steps.
         continue;    
 
@@ -163,7 +166,7 @@ void thread_main(void)
       pico_state.step_queue.processing = true;
 
       // Get the Step Size
-      float step_size = drv_determine_step(node.mode_0, node.mode_1, node.mode_2);
+      double step_size = drv_determine_step(node.mode_0, node.mode_1, node.mode_2);
 
       // Enable Drivers
       drv_enable_driver(true);
@@ -198,13 +201,14 @@ void thread_main(void)
         // As long as the overall time is larger than ~4us we are within the allowed frequency 
 
         // Update the State of the PICO's Step Counter
-        if(GET_BIT_N(step_mask, DRV_X_STEP))
+        if(!!(GET_BIT_N(step_mask, DRV_X_STEP)))
           pico_state.drv_x_location += (node.x_dir ? 1 : -1) * step_size;
-        if(GET_BIT_N(step_mask, DRV_Y_STEP))
+        if(!!(GET_BIT_N(step_mask, DRV_Y_STEP)))
           pico_state.drv_y_location += (node.y_dir ? 1 : -1) * step_size;
-        if(GET_BIT_N(step_mask, DRV_Z_STEP))
+        if(!!(GET_BIT_N(step_mask, DRV_Z_STEP)))
           pico_state.drv_z_location += (node.z_dir ? 1 : -1) * step_size;
-      }      
+      }     
+      gpio_put(PICO_DEFAULT_LED_PIN, GPIO_HIGH);
     }
     
     // Turn off Spindle

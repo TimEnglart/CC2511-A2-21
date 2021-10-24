@@ -26,21 +26,21 @@
 #define DRV_SETUP_TIME_DURATION 3
 
 typedef unsigned char uint8_t;
-
+typedef long unsigned int uint32_t;
 
 // Determine the Percentage of a step based on the active modes
-float drv_determine_step(bool mode_0, bool mode_1, bool mode_2);
+double drv_determine_step(bool mode_0, bool mode_1, bool mode_2);
 
 // Determine the mode basic mode requried based on the step you want to perform
 // Returns an byte where bit 1 is mode_2, 2 is mode_1, 3 is mode_0, 4 is invalid step
-uint8_t drv_determine_mode(float step);
+uint8_t drv_determine_mode(double step);
 
 // Determine the Actual step count based on the number of steps at a certain step
-float drv_determine_distance(float step_amount, unsigned int n_steps);
+double drv_determine_distance(double step_amount, unsigned int n_steps);
 
 // Determine the amount of steps required for a certain distance in the provided mode
-int drv_step_amount(float distance, bool mode_0, bool mode_1, bool mode_2);
-int drv_step_amount_masked(float distance, uint8_t mode_mask);
+uint32_t drv_step_amount(double distance, bool mode_0, bool mode_1, bool mode_2);
+uint32_t drv_step_amount_masked(double distance, uint8_t mode_mask);
 
 
 #endif // DRV8825_H
