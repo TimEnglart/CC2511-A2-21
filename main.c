@@ -52,7 +52,7 @@ int main(void) {
   gpio_set_dir_masked(GPIO_OUTPUT_PINS, GPIO_OUTPUT_PINS); // Outputs
   gpio_set_dir_masked(GPIO_INPUT_PINS, ~GPIO_INPUT_PINS); // Inputs
 
-  
+  // Turn on the PICO LED so we can know if we have power
   gpio_init(PICO_DEFAULT_LED_PIN);
   gpio_set_dir(PICO_DEFAULT_LED_PIN, GPIO_OUT);
   gpio_put(PICO_DEFAULT_LED_PIN, GPIO_HIGH);
@@ -83,9 +83,9 @@ int main(void) {
 
   // NOTE: Could use drv_go_to_position but need to provide additional pico states which append does for us
   // Step the Z Axis Back to Origin / 0
-  // Example: If we are at 73.2 Steps on the Z axis
+  // Example: If we are at 73.25 Steps on the Z axis
   drv_append_position(0, 0, (float)(-z_steps)); // Will be -73
-  drv_append_position(0, 0, -pico_state.drv_z_location_pending); // Will be -0.2 as the pending location should be updated
+  drv_append_position(0, 0, -pico_state.drv_z_location_pending); // Will be -0.25 as the pending location should be updated
 
   // Step the X & Y Axis Back to Origin / 0
   drv_append_position((float)(-x_steps), (float)(-y_steps), 0);
@@ -106,8 +106,12 @@ int main(void) {
   {
     sleep_ms(100);
   }
+  term_cls();
+  // Turn off LED as the board has exited the main loop
+  gpio_put(PICO_DEFAULT_LED_PIN, GPIO_LOW);
 }
 
+#ifdef WAIT_FOR_INTERRUPT_CORE_1
 void process(uint gpio, uint32_t events)
 {
   // Using this function to get out of the low power mode
@@ -118,10 +122,12 @@ void process(uint gpio, uint32_t events)
     https://forums.raspberrypi.com/viewtopic.php?t=304815
   */
 }
+#endif
 
 void thread_main(void)
 {
   #ifdef WAIT_FOR_INTERRUPT_CORE_1
+  // Setup a GPIO Pin which we put a interrupt on so that we can escape low power mode
   gpio_init(PROCESS_QUEUE);
   gpio_set_dir(PROCESS_QUEUE, GPIO_OUT);
   gpio_pull_up(PROCESS_QUEUE);
@@ -139,6 +145,7 @@ void thread_main(void)
     sleep_ms(1000);
     #endif
 
+    // Process all movements that are enqueued or skip if there are none
     while(!queue_is_empty(&pico_state.step_queue))
     {
       // Setup Information needed for step
@@ -199,15 +206,14 @@ void thread_main(void)
           pico_state.drv_z_location += (node.z_dir ? 1 : -1) * step_size;
       }      
     }
-    // The above While will be skipped if there isn't anything to do
-
-
+    
     // Turn off Spindle
     // TODO: May need to raise the Z motor if we stop the spindle to prevent it from catching
     enable_spindle(false);
     
     // Should we do this?
     drv_enable_driver(false);
+
+    pico_state.step_queue.processing = false;
   }
-  pico_state.step_queue.processing = false;
 }
