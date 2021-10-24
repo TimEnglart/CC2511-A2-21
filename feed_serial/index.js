@@ -14,13 +14,15 @@ const { scalePoints } = require('./utils');
 
     // Get to the Predefined Draw Menu
     await write("s\n");
+    
+    // Reset the to the Origin
+    await write("0,0,0;");
 
-    // Process SVG
+    // Process Points
     const paths = multi_circle;
     const dump = {};
     
-    // As there are multiple paths with are not connected we need to iterate through each of them seperately
-    // To get a good scale
+    // As there are multiple paths with are not connected we need to iterate through each of them seperately to get a good scale
     const pathIterator = Object.entries(paths);
     const MAX_STEPS_X = 10, MAX_STEPS_Y = 10, MIN_STEPS_X = 0, MIN_STEPS_Y = 0;
         let maxX = 0, maxY = 0, lowX = Number.MAX_SAFE_INTEGER, lowY = Number.MAX_SAFE_INTEGER;
@@ -42,11 +44,11 @@ const { scalePoints } = require('./utils');
     for(const [i, [key, points]] of pathIterator.entries())
     {
         console.log(`Normalising & Scaling Path: ${key} (#${i + 1} / ${pathIterator.length})`);
-        // Normalise, Scale the SVG
+        // Normalise, Scale the Points
         const scaled = scalePoints(points, maxX, maxY, lowX, lowY, MAX_STEPS_X, MAX_STEPS_Y, MIN_STEPS_X, MIN_STEPS_Y);
         
         // Dump this path so we can visualise it
-        dump[key] = scaled;
+        // dump[key] = scaled;
 
         // Round so the pico can process
         // Sometimes the rounded number does not match what it should be. Using Higher Maxes Fixes This
