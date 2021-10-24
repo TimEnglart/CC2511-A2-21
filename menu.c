@@ -15,7 +15,7 @@ char input_buffer[INPUT_BUFFER_SIZE];
 int input_buffer_index;
 
 // WASD Based Menu
-struct menu_node *current_menu, *main_menu, *free_draw_menu, *predefined_draw_menu, *debug_menu;
+struct menu_node *current_menu, *main_menu, *free_draw_menu, *predefined_draw_menu;
 int text_output_y;
 
 void uart_irq_handler(void)
@@ -30,7 +30,6 @@ void uart_irq_handler(void)
     // Let the Menu Handle Key Presses / Exit if it has handled the keypress
     if (current_menu->override_irq && current_menu->override_irq(ch))
     {
-      print_pico_state();
       return;
     }
       
@@ -101,8 +100,6 @@ void update_selection(void)
 
 void draw_menu(void)
 {
-  print_pico_state();
-
   // Draw Program Title
   term_move_to(0, 0);
   term_erase_line();
@@ -201,10 +198,6 @@ void go_to_predefined_draw(void)
 {
   go_to_menu(predefined_draw_menu);
 }
-void go_to_debug(void)
-{
-  go_to_menu(debug_menu);
-}
 
 // Handle Keypresses for free drawing
 char free_draw_irq(char ch) 
@@ -215,7 +208,7 @@ char free_draw_irq(char ch)
   */
 
   // Statically Allocate our scoped variables that our function relies on
-  static float step_amount = 1;
+  static double step_amount = 1;
 
   switch (ch)
   {
@@ -238,19 +231,38 @@ char free_draw_irq(char ch)
   // Move the Z Axis
   case 'q':
     drv_append_position(0, 0, step_amount);
+    break;
   case 'e':
     drv_append_position(0, 0, -step_amount);
+    break;
 
   // Change Step Amounts
   case 'z':
     step_amount -= 0.03125;
     if(step_amount < 0.03125) step_amount = 0.03125;
+    break;
   case 'x':
     step_amount += 0.03125;
     if(step_amount > 1) step_amount = 1;
+    break;
+
   default:
     return 0;
   }
+    // Draw Instructions
+  term_move_to(0, text_output_y);
+  term_set_color(clrWhite, clrBlack);
+  printf("Axis Navigation");
+  term_move_to(0, text_output_y + 1);
+  term_set_color(clrWhite, clrBlack);
+  printf("LEFT: A | RIGHT: D | FORWARD: W | BACK: S | UP: Q | DOWN: E");
+  term_move_to(0, text_output_y + 2);
+  term_set_color(clrWhite, clrBlack);
+  printf("Step Modification - Step = %.5f", step_amount);
+  term_move_to(0, text_output_y + 3);
+  term_set_color(clrWhite, clrBlack);
+  printf("INCREASE STEP: X | DECREASE STEP: Z");
+  print_pico_state();
   return 1;
 }
 uint8_t last_ch;
@@ -265,7 +277,7 @@ char predefined_draw_irq(char ch)
   */
   static char buffer[300];
   static uint8_t buffer_index = 0;
-  static float coords[3];
+  static double coords[3];
   static uint8_t coordinate_index = 0;
   last_ch = ch;
   switch (ch)
@@ -287,6 +299,11 @@ char predefined_draw_irq(char ch)
     buffer[buffer_index] = '\0';
     break;
   }
+  case '\n':
+    // As the Script Tries to access the Menu From Main Menu. Wipe Data on newline
+    buffer_index = 0;
+    buffer[buffer_index] = '\0';
+    break;
   default:
     buffer[buffer_index++] = ch;
     buffer[buffer_index] = '\0';
@@ -294,72 +311,12 @@ char predefined_draw_irq(char ch)
   }
   return 1;
 }
-
-void debug_change(bool increment)
-{
-  switch (current_menu->current_selection)
-  {
-  case 0: // DRV_X_LOC
-    break;
-  case 1: // DRV_X_DIR
-    break;
-  case 2: // DRV_Y_LOC
-    break;
-  case 3: // DRV_Y_DIR
-    break;
-  case 4: // DRV_Z_LOC
-    break;
-  case 5: // DRV_Z_DIR
-    break;
-  case 6: // DRV_ENABLE
-    break;
-  case 7: // DRV_DECAY
-    break;
-  case 8: // DRV_RESET
-    break;
-  case 9: // DRV_SLEEP
-    break;
-  case 10: // MODE_0
-    break;
-  case 11: // MODE_1
-    break;
-  case 12: // MODE_2
-    break;
-  case 13: // SPINDLE_TOGGLE
-    break;
-  
-  default:
-    break;
-  }
-}
-// Handle Keypresses on the debug menu 
-char debug_irq(char ch) 
-{
-  /*
-    Menu Description:
-    This menu bascially allows the user to change many of the state variables within the program
-  */
-
-
-  switch (ch)
-  {
-  case 'a':
-  case 'd':
-    debug_change(ch == 'd');
-    break;
-  default:
-    return 0;
-  }
-  return 1;
-}
-
 void generate_menus(void)
 {
   // Allocate Memory for all the menus
   main_menu = (struct menu_node *)malloc(sizeof(struct menu_node));
   free_draw_menu = (struct menu_node *)malloc(sizeof(struct menu_node));
   predefined_draw_menu = (struct menu_node *)malloc(sizeof(struct menu_node));
-  debug_menu = (struct menu_node *)malloc(sizeof(struct menu_node));
 
   // Create Options
 
@@ -372,79 +329,25 @@ void generate_menus(void)
     {
       .on_select = go_to_predefined_draw,
       .option_text = "Predefined Draw"
-    },
-    {
-      .on_select = go_to_debug,
-      .option_text = "Debug"
     }
   };
 
   create_menu(main_menu, "Main Menu", 0, LENGTH_OF_ARRAY(main_menu_options), main_menu_options);
 
-  // Free Draw Menu
+  // Free Draw Menu (Manual Movements)
   create_menu(free_draw_menu, "Free Draw", main_menu, 0, 0);
   free_draw_menu->override_irq = free_draw_irq; // Custom UART IRQ Handler
-  // Predefined Draw ()
-
+  
+  // Predefined Draw Menu (Serial Coordinates)
   create_menu(predefined_draw_menu, "Predefined Draw", main_menu, 0, 0);
   predefined_draw_menu->override_irq = predefined_draw_irq;
 
-  struct menu_option debug_menu_options[] = {
-    {
-      .option_text = "[-] DRV_X_LOCATION [+]"
-    },
-    {
-      .option_text = "[-] DRV_X_DIRECTION [+]"
-    },
-    {
-      .option_text = "[-] DRV_Y_LOCATION [+]"
-    },
-    {
-      .option_text = "[-] DRV_Y_DIRECTION [+]"
-    },
-    {
-      .option_text = "[-] DRV_Z_LOCATION [+]"
-    },
-    {
-      .option_text = "[-] DRV_Z_DIRECTION [+]"
-    },
-    {
-      .option_text = "[-] DRV_ENABLE [+]"
-    },
-    {
-      .option_text = "[-] DRV_DECAY [+]"
-    },
-    {
-      .option_text = "[-] DRV_RESET [+]"
-    },
-    {
-      .option_text = "[-] DRV_SLEEP [+]"
-    },
-    {
-      .option_text = "[-] DRV_MODE_0 [+]"
-    },
-    {
-      .option_text = "[-] DRV_MODE_1 [+]"
-    },
-    {
-      .option_text = "[-] DRV_MODE_2 [+]"
-    },
-    {
-      .option_text = "[-] SPINDLE_STATUS [+]"
-    }
-  };
-  create_menu(debug_menu, "Debug", main_menu, LENGTH_OF_ARRAY(debug_menu_options), debug_menu_options);
-  debug_menu->override_irq = debug_irq;
   // Set The Current Menu to Main Menu
   current_menu = main_menu;
 }
 
 void release_menus(void)
-{
-  // Some how dynamically free all Items.
-  free(debug_menu->options);
-  free(debug_menu);
-  
+{ 
   free(free_draw_menu->options);
   free(free_draw_menu);
 
