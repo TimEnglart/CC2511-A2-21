@@ -55,13 +55,6 @@ void uart_irq_handler(void)
       }
       break;
 
-    // Use these for free-movement :)
-    case 'a':
-      break;
-
-    case 'd':
-      break;
-
     // Redraw Menu
     case 'r':
       draw_menu();
@@ -117,7 +110,7 @@ void draw_menu(void)
   printf("CC2511 - Group 2 - Assignment 2");
 
   // Draw Controls
-  term_move_to(0, 20);
+  term_move_to(0, text_output_y + 1);
   term_erase_line();
   term_set_color(clrGreen, clrBlack);
   printf("Controls: W - Up | S - Down | A - Left | D - Right");
@@ -222,23 +215,39 @@ char free_draw_irq(char ch)
   */
 
   // Statically Allocate our scoped variables that our function relies on
-  static int x, y, z;
+  static float step_amount = 1;
 
   switch (ch)
   {
+  // Move the Y Axis
   case 'w':
-    drv_append_position(0, 1, 0);
+    drv_append_position(0, step_amount, 0);
     break;
   case 's':
-    drv_append_position(0, -1, 0);
-    break;
-  case 'a':
-    drv_append_position(-1, 0, 0);
-    break;
-  case 'd':
-    drv_append_position(1, 0, 0);
+    drv_append_position(0, -step_amount, 0);
     break;
   
+  // Move the X Axis
+  case 'a':
+    drv_append_position(-step_amount, 0, 0);
+    break;
+  case 'd':
+    drv_append_position(step_amount, 0, 0);
+    break;
+  
+  // Move the Z Axis
+  case 'q':
+    drv_append_position(0, 0, step_amount);
+  case 'e':
+    drv_append_position(0, 0, -step_amount);
+
+  // Change Step Amounts
+  case 'z':
+    step_amount -= 0.03125;
+    if(step_amount < 0.03125) step_amount = 0.03125;
+  case 'x':
+    step_amount += 0.03125;
+    if(step_amount > 1) step_amount = 1;
   default:
     return 0;
   }
