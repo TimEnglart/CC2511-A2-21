@@ -253,7 +253,8 @@ char free_draw_irq(char ch)
   }
   return 1;
 }
-
+uint8_t last_ch;
+uint commands_recv = 0;
 // Handle Keypresses for predefined drawing
 char predefined_draw_irq(char ch) 
 {
@@ -262,23 +263,34 @@ char predefined_draw_irq(char ch)
     Allows for predefined coordinates to be used for drawing or
     Pass Custom Coords to the queue
   */
+  static char buffer[300];
+  static uint8_t buffer_index = 0;
+  static float coords[3];
+  static uint8_t coordinate_index = 0;
+  last_ch = ch;
   switch (ch)
   {
-  case 'w':
-    
+  case ';': // End of Coords
+  {
+    commands_recv++;
+    coords[coordinate_index++] = atof(buffer);
+    drv_go_to_position(coords[0], coords[1], coords[2]);
+    coordinate_index = 0;
+    buffer_index = 0;
+    buffer[buffer_index] = '\0';
     break;
-  case 's':
-    
+  }
+  case ',':
+  {
+    coords[coordinate_index++] = atof(buffer);
+    buffer_index = 0;
+    buffer[buffer_index] = '\0';
     break;
-  case 'a':
-    
-    break;
-  case 'd':
-    
-    break;
-  
+  }
   default:
-    return 0;
+    buffer[buffer_index++] = ch;
+    buffer[buffer_index] = '\0';
+    break;
   }
   return 1;
 }
@@ -436,6 +448,9 @@ void release_menus(void)
   free(free_draw_menu->options);
   free(free_draw_menu);
 
+  free(predefined_draw_menu->options);
+  free(predefined_draw_menu);
+
   free(main_menu->options);
   free(main_menu);
 }
@@ -455,7 +470,7 @@ void write_debug(const char *format, ...)
 void print_pico_state(void)
 {
   term_move_to(0, text_output_y + 5);
-  term_set_color(clrGreen, clrBlack);
+  term_set_color(clrWhite, clrBlack);
   term_erase_line();
   printf("X: %.5f | Y: %.5f | Z: %.5f", 
     pico_state.drv_x_location, 
@@ -464,7 +479,7 @@ void print_pico_state(void)
   );
 
   term_move_to(0, text_output_y + 6);
-  term_set_color(clrGreen, clrBlack);
+  term_set_color(clrWhite, clrBlack);
   term_erase_line();
     printf("<X>: %.5f | <Y>: %.5f | <Z>: %.5f", 
     pico_state.drv_x_location_pending, 
@@ -473,7 +488,7 @@ void print_pico_state(void)
   );
 
   term_move_to(0, text_output_y + 7);
-  term_set_color(clrGreen, clrBlack);
+  term_set_color(clrWhite, clrBlack);
   term_erase_line();
     printf("m_0: %d | m_1: %d | m_2: %d", 
     pico_state.mode_0, 
@@ -482,7 +497,7 @@ void print_pico_state(void)
   );
 
   term_move_to(0, text_output_y + 8);
-  term_set_color(clrGreen, clrBlack);
+  term_set_color(clrWhite, clrBlack);
   term_erase_line();
     printf("x_dir: %d | y_dir: %d | z_dir: %d", 
     pico_state.drv_x_direction, 
@@ -491,7 +506,7 @@ void print_pico_state(void)
   );
 
   term_move_to(0, text_output_y + 9);
-  term_set_color(clrGreen, clrBlack);
+  term_set_color(clrWhite, clrBlack);
   term_erase_line();
     printf("!drv!: %d | !spindle!: %d | queue: %d", 
     pico_state.drv_enabled, 

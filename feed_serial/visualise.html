@@ -1,0 +1,98 @@
+<html>
+
+<head>
+    <style type="text/css">
+        canvas { border: 1px solid black; }
+    </style>
+    
+</head> 
+
+<body onload="draw();">
+    <canvas id="draw" width="1000" height="600"></canvas>
+
+    </canvas>
+</body>
+
+
+<script src="dump.js"></script>
+<script>
+    const rescale = (value, maxIn, minIn, maxOut, minOut) => {
+    return minOut + (value - minIn) * ((maxOut - minOut) / (maxIn - minIn))
+}
+const scalePoints = (points, maxX, maxY, minX, minY, maxXBounds, maxYBounds, minXBounds, minYBounds, iterations = 0) => {
+    const scaledPoints = [];
+    for(const [x, y] of points)
+    {
+        const scaledX = rescale(+x, maxX, minX, maxXBounds, minXBounds);
+        const scaledY = rescale(+y, maxY, minY, maxYBounds, minYBounds);
+
+        // If the scale is outside of scope rescale with new max bounds
+        // IDK how to fix this with maths
+        if(scaledX > maxXBounds || scaledX < minXBounds)
+        {
+            return scalePoints(points, maxX, maxY, minX, minY, 
+                maxXBounds - (maxXBounds * 0.1), maxYBounds, minXBounds + (minXBounds * 0.1), minYBounds);
+        }
+        if(scaledY > maxYBounds || scaledY < minYBounds)
+        {
+            return scalePoints(points, maxX, maxY, minX, minY, 
+                maxXBounds, maxYBounds - (maxYBounds * 0.1), minXBounds, minYBounds + (minYBounds * 0.1));
+        }
+    
+        scaledPoints.push([scaledX, scaledY]);
+    }
+    return scaledPoints;
+}
+
+    
+    async function draw() {
+        var canvas = document.getElementById('draw');
+        if (canvas.getContext) {
+            var ctx = canvas.getContext('2d'); 
+            const MAX_STEPS_X = 950, MAX_STEPS_Y = 550;
+            const MIN_STEPS_X = 50, MIN_STEPS_Y = 50;
+
+            let maxX = 0, maxY = 0, lowX = Number.MAX_SAFE_INTEGER, lowY = Number.MAX_SAFE_INTEGER;
+            for(const [pathKey, pathPoints] of Object.entries(obj))
+            {
+                for(const [x, y] of pathPoints)
+                {
+                    console.log(`${x} | ${y}`)
+                    if(x > maxX) maxX = +x;
+                    if(x < lowX) lowX = +x;
+                    if(y > maxY) maxY = +y;
+                    if(y < lowY) lowY = +y;
+                }
+                console.log(`MAX_X: ${maxX}, MAX_Y: ${maxY}, LOW_X: ${lowX}, LOW_Y: ${lowY}`);
+            }
+            for(const [pathKey, pathPoints] of Object.entries(obj))
+            {
+                
+                ctx.beginPath();
+                ctx.strokeStyle = 'black';
+                console.log(pathPoints);
+
+                const scaledPoints = scalePoints(pathPoints, maxX, maxY, lowX, lowY, MAX_STEPS_X, MAX_STEPS_Y, MIN_STEPS_X, MIN_STEPS_Y);
+                console.log(scaledPoints);
+                for(const [x, y] of scaledPoints)
+                {
+                    if(x < MIN_STEPS_X) console.log(x);
+                    if(y < MIN_STEPS_Y) console.log(y);
+                    if(x > MAX_STEPS_X) console.log(x);
+                    if(y > MAX_STEPS_Y) console.log(y);
+
+
+                    // console.log(normalisedScaleX);
+
+                    // ctx.moveTo(x, y);
+                    ctx.lineTo(x, y);
+                    // ctx.arc(x, y, 2, 0, 2 * Math.PI);
+                    ctx.stroke();
+                }
+            }
+        }
+        console.log("done drawing...");
+    }
+</script>
+
+</html>
