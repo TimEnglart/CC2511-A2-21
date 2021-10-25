@@ -58,6 +58,10 @@
 #define DRV_Y_MAX_STEPS 10
 #define DRV_Z_MAX_STEPS 10
 
+#define DRV_X_MIN_STEPS 0
+#define DRV_Y_MIN_STEPS 0
+#define DRV_Z_MIN_STEPS 0
+
 
 #define GPIO_OUTPUT_PINS \
     (1 << DRV_RESET)        |\

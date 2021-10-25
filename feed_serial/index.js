@@ -11,6 +11,9 @@ const { scalePoints } = require('./utils');
 // 0 is command, 1 is js file, 2 onward is args
 const dumpImage = (process.argv.slice(2)[0] || '').toLowerCase() === 'dump';
 
+// Set the Min and Max Steps for the PICO board (Same as in pico.h)
+const MAX_STEPS_X = 10, MAX_STEPS_Y = 10, MAX_STEPS_Z = 1, MIN_STEPS_X = 0, MIN_STEPS_Y = 0, MIN_STEPS_Z = 0;
+
 (async () => {
     // Open Serial Connection
     await open();
@@ -19,7 +22,7 @@ const dumpImage = (process.argv.slice(2)[0] || '').toLowerCase() === 'dump';
     await write("s\n");
     
     // Reset the to the Origin
-    await write("0,0,0;");
+    await write(`${MIN_STEPS_X},${MIN_STEPS_Y},${MIN_STEPS_Z};`);
 
     // Process Points
     const paths = multi_circle;
@@ -27,8 +30,9 @@ const dumpImage = (process.argv.slice(2)[0] || '').toLowerCase() === 'dump';
     
     // As there are multiple paths with are not connected we need to iterate through each of them seperately to get a good scale
     const pathIterator = Object.entries(paths);
-    const MAX_STEPS_X = 10, MAX_STEPS_Y = 10, MIN_STEPS_X = 0, MIN_STEPS_Y = 0;
-        let maxX = 0, maxY = 0, lowX = Number.MAX_SAFE_INTEGER, lowY = Number.MAX_SAFE_INTEGER;
+    
+    // Setup Scale Variables
+    let maxX = 0, maxY = 0, lowX = Number.MAX_SAFE_INTEGER, lowY = Number.MAX_SAFE_INTEGER;
     
     console.log(`Processing ${pathIterator.length} Paths...`)
     for(const [, pathPoints] of pathIterator)
@@ -108,22 +112,22 @@ const dumpImage = (process.argv.slice(2)[0] || '').toLowerCase() === 'dump';
             [lastElementX, lastElementY] = processedPoints.pop();
 
         // Setup the Inital X & Y
-        await write(`${firstElementX},${firstElementY},0;`);
+        await write(`${firstElementX},${firstElementY},${MIN_STEPS_Z};`);
         // Place the Z
-        await write(`${firstElementX},${firstElementY},1;`);
+        await write(`${firstElementX},${firstElementY},${MAX_STEPS_Z};`);
 
         // Iterate Over All the Other Points
         for(const [i, [x, y]] of processedPoints.entries())
         {
-            const stepInstruction = `${x},${y},1;`
+            const stepInstruction = `${x},${y},${MAX_STEPS_Z};`
             await write(stepInstruction);
             console.log(`${stepInstruction} (#${i + 1})`);
         }
 
         // Handle the Last Element
-        await write(`${lastElementX},${lastElementY},1;`);
+        await write(`${lastElementX},${lastElementY},${MAX_STEPS_Z};`);
         // Lift the Z
-        await write(`${lastElementX},${lastElementY},0;`);
+        await write(`${lastElementX},${lastElementY},${MIN_STEPS_Z};`);
     }
 
     fs.writeFileSync('dump.js', `var obj = ${JSON.stringify(dump)}; var loaded = true;`);

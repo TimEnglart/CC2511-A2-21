@@ -140,11 +140,10 @@ void drv_go_to_position(double x, double y, double z)
     if(z > DRV_Z_MAX_STEPS) z = DRV_Z_MAX_STEPS;
 
     // Handle Position Underflow
-    // TODO: Maybe add a define for DRV_?_MIN_STEPS for ease of extension (but we are using zero so nah)
-    // Check if new location less than 0 (which is our minimum position value)
-    if(x < 0) x = 0;
-    if(y < 0) y = 0;
-    if(z < 0) z = 0;
+    // Check if new location less than our set minimum
+    if(x < DRV_X_MIN_STEPS) x = DRV_X_MIN_STEPS;
+    if(y < DRV_Y_MIN_STEPS) y = DRV_Y_MIN_STEPS;
+    if(z < DRV_Z_MIN_STEPS) z = DRV_Z_MIN_STEPS;
 
     // For Each Axis Determine the Direction
     bool x_dir = pico_state.drv_x_location_pending <= x,
