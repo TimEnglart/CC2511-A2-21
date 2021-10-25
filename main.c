@@ -170,6 +170,7 @@ void thread_main(void)
 
       // Enable Drivers
       drv_enable_driver(true);
+      sleep_ms(300);
 
       // Setup Step Directions.
       drv_set_direction(X, node.x_dir);
@@ -208,9 +209,7 @@ void thread_main(void)
         if(!!(GET_BIT_N(step_mask, DRV_Z_STEP)))
           pico_state.drv_z_location += (node.z_dir ? 1 : -1) * step_size;
       }     
-      gpio_put(PICO_DEFAULT_LED_PIN, GPIO_HIGH);
     }
-    
     // Turn off Spindle
     // TODO: May need to raise the Z motor if we stop the spindle to prevent it from catching
     enable_spindle(false);
@@ -218,6 +217,7 @@ void thread_main(void)
     // Should we do this?
     drv_enable_driver(false);
 
+    gpio_put(PICO_DEFAULT_LED_PIN, GPIO_HIGH);
     pico_state.step_queue.processing = false;
   }
 }

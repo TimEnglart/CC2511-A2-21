@@ -245,6 +245,13 @@ char free_draw_irq(char ch)
     step_amount += 0.03125;
     if(step_amount > 1) step_amount = 1;
     break;
+  
+  case 't':
+    enable_spindle(true);
+    break;
+  case 'y':
+    enable_spindle(false);
+    break;
 
   default:
     return 0;
