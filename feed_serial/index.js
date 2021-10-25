@@ -8,6 +8,9 @@ const { circle, rectangle, multi_rect, multi_circle, rabbit, javascript_logo, ge
 const { write, open } = require('./serial');
 const { scalePoints } = require('./utils');
 
+// 0 is command, 1 is js file, 2 onward is args
+const dumpImage = (process.argv.slice(2)[0] || '').toLowerCase() === 'dump';
+
 (async () => {
     // Open Serial Connection
     await open();
@@ -97,7 +100,8 @@ const { scalePoints } = require('./utils');
         // Send All the Scaled Points to the PICO
         console.log(`Sending: ${processedPoints.length} Steps (Originally: ${scaled.length} Steps)`);
         
-        // continue; // Skip the Serial Transmission so we can dump
+        if(dumpImage)
+            continue; // Skip the Serial Transmission so we can dump
         
         // Get the First and Last Step of the Path so we can handle the Z Lift Accordingly
         const [firstElementX, firstElementY] = processedPoints.shift(), 
