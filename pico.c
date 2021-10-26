@@ -45,21 +45,26 @@ void pico_uart_deinit(void)
 void enable_spindle(bool enabled)
 {
     gpio_put(SPINDLE_TOGGLE, enabled);
+    sleep_ms(200); // Wind up time
     pico_state.spindle_enabled = enabled;
 }
 void drv_set_mode(bool mode_0, bool mode_1, bool mode_2)
 {
     gpio_put(DRV_MODE_0, mode_0);
+    sleep_us(2); // Setup Time + Hold Time
     pico_state.mode_0 = mode_0;
     gpio_put(DRV_MODE_1, mode_1);
+    sleep_us(2); // Setup Time + Hold Time
     pico_state.mode_1 = mode_1;
     gpio_put(DRV_MODE_2, mode_2);
+    sleep_us(2); // Setup Time + Hold Time
     pico_state.mode_2 = mode_2;
 }
 void drv_set_direction(DRV_DRIVER axis, bool direction)
 {
     char pin = drv_get_axis_pin(axis);
     gpio_put(pin, direction);
+    sleep_us(2); // Setup Time + Hold Time
 
     switch (axis)
     {
@@ -186,9 +191,9 @@ void drv_go_to_position(double x, double y, double z)
         .y_dir = y_dir,
         .z_steps = drv_step_amount_masked(z_distance, mode_mask),
         .z_dir = z_dir,
-        .mode_0 = !!(GET_BIT_N(mode_mask, 2)), 
-        .mode_1 = !!(GET_BIT_N(mode_mask, 1)), 
-        .mode_2 = !!(GET_BIT_N(mode_mask, 0))
+        .mode_0 = GET_BIT_N(mode_mask, 2), 
+        .mode_1 = GET_BIT_N(mode_mask, 1), 
+        .mode_2 = GET_BIT_N(mode_mask, 0)
     };
     queue_push(&pico_state.step_queue, &node);
     

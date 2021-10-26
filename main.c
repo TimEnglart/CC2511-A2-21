@@ -170,7 +170,6 @@ void thread_main(void)
 
       // Enable Drivers
       drv_enable_driver(true);
-      sleep_ms(300);
 
       // Setup Step Directions.
       drv_set_direction(X, node.x_dir);
@@ -195,18 +194,20 @@ void thread_main(void)
 
         // Step the Motors
         gpio_put_masked(step_mask, step_mask);
-        sleep_us(3); // tWH(STEP)	Pulse duration, STEP high	1.9		μs (min)
+        sleep_ms(300);
+        // sleep_us(3); // tWH(STEP)	Pulse duration, STEP high	1.9		μs (min)
         gpio_put_masked(step_mask, ~step_mask);
-        sleep_us(3); // tWL(STEP)	Pulse duration, STEP low	1.9		μs (min)
+        sleep_ms(300);
+        // sleep_us(3); // tWL(STEP)	Pulse duration, STEP low	1.9		μs (min)
         // The 2 Sleeps will generate our frequency (see figure 1. in Data Sheet)
         // As long as the overall time is larger than ~4us we are within the allowed frequency 
 
         // Update the State of the PICO's Step Counter
-        if(!!(GET_BIT_N(step_mask, DRV_X_STEP)))
+        if(GET_BIT_N(step_mask, DRV_X_STEP))
           pico_state.drv_x_location += (node.x_dir ? 1 : -1) * step_size;
-        if(!!(GET_BIT_N(step_mask, DRV_Y_STEP)))
+        if(GET_BIT_N(step_mask, DRV_Y_STEP))
           pico_state.drv_y_location += (node.y_dir ? 1 : -1) * step_size;
-        if(!!(GET_BIT_N(step_mask, DRV_Z_STEP)))
+        if(GET_BIT_N(step_mask, DRV_Z_STEP))
           pico_state.drv_z_location += (node.z_dir ? 1 : -1) * step_size;
       }     
     }
