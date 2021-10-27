@@ -138,86 +138,24 @@ void thread_main(void)
   {
     #ifdef WAIT_FOR_INTERRUPT_CORE_1
     // Want this at the top so that we can process data before we exit
-    __wfi(); // Should be fine to wait for interrupt as UART is how data is being delievered
-    // If this is to become a problem we could probably implement a mock interrupt that just returns
-    // Or just ignore and not be battery efficient.
+    // We have setup a interrupt on the PROCESS_QUEUE gpio pin 
+    // That interrupt will allow us to break out of the low power mode
+    __wfi(); 
     #else
     sleep_ms(1000);
     #endif
 
-    // Process all movements that are enqueued or skip if there are none
-    while(!queue_is_empty(&pico_state.step_queue))
+    // Turn off LED to show processing
+    gpio_put(PICO_DEFAULT_LED_PIN, GPIO_LOW);
+
+    // NOTE: Even though inside the process_step_queue there is a while loop checking the exact same condition
+    // there are sleeps after exiting the while loop. So check here aswell to prevent missing new steps
+    do
     {
-      // Setup Information needed for step
-      uint32_t step_mask = 0;
-      drv_queue_node_t node;
-      queue_pop(&pico_state.step_queue, &node);
-
-      // Blink LED to show processing
-      gpio_put(PICO_DEFAULT_LED_PIN, GPIO_LOW);
-
-      if(!node.initialized) // We have failed to get the data for the steps.
-        continue;    
-
-      // Maybe this should be put in the preprocessing step   
-      if(!node.x_steps && !node.y_steps && !node.z_steps) // There are no steps to be performed
-        continue;
-
-      pico_state.step_queue.processing = true;
-
-      // Get the Step Size
-      double step_size = drv_determine_step(node.mode_0, node.mode_1, node.mode_2);
-
-      // Enable Drivers
-      drv_enable_driver(true);
-
-      // Setup Step Directions.
-      drv_set_direction(X, node.x_dir);
-      drv_set_direction(Y, node.y_dir);
-      drv_set_direction(Z, node.z_dir);
-
-      // Setup Mode.
-      drv_set_mode(node.mode_0, node.mode_1, node.mode_2);
-
-      // Turn on Spindle
-      enable_spindle(true);
-      
-      // Need to init these initialisers for the loop as they underflow if not assigned
-      // Did not know that (actually undefined behaviour)
-      // https://stackoverflow.com/questions/21152138/local-variable-initialized-to-zero-in-c
-      for(uint32_t x = 0, y = 0, z = 0; x < node.x_steps || y < node.y_steps || z < node.z_steps; x = y = ++z)
-      {
-        // Setup Mask for this step
-        SET_BIT_N(step_mask, DRV_X_STEP, !!(x < node.x_steps));
-        SET_BIT_N(step_mask, DRV_Y_STEP, !!(y < node.y_steps));
-        SET_BIT_N(step_mask, DRV_Z_STEP, !!(z < node.z_steps));
-
-        // Step the Motors
-        gpio_put_masked(step_mask, step_mask);
-        sleep_ms(300);
-        // sleep_us(3); // tWH(STEP)	Pulse duration, STEP high	1.9		μs (min)
-        gpio_put_masked(step_mask, ~step_mask);
-        sleep_ms(300);
-        // sleep_us(3); // tWL(STEP)	Pulse duration, STEP low	1.9		μs (min)
-        // The 2 Sleeps will generate our frequency (see figure 1. in Data Sheet)
-        // As long as the overall time is larger than ~4us we are within the allowed frequency 
-
-        // Update the State of the PICO's Step Counter
-        if(GET_BIT_N(step_mask, DRV_X_STEP))
-          pico_state.drv_x_location += (node.x_dir ? 1 : -1) * step_size;
-        if(GET_BIT_N(step_mask, DRV_Y_STEP))
-          pico_state.drv_y_location += (node.y_dir ? 1 : -1) * step_size;
-        if(GET_BIT_N(step_mask, DRV_Z_STEP))
-          pico_state.drv_z_location += (node.z_dir ? 1 : -1) * step_size;
-      }     
-    }
-    // Turn off Spindle
-    // TODO: May need to raise the Z motor if we stop the spindle to prevent it from catching
-    enable_spindle(false);
+      process_step_queue(); // Process the Steps in the Queue and Act Upon Them
+    } while (!queue_is_empty(&pico_state.step_queue));
     
-    // Should we do this?
-    drv_enable_driver(false);
-
+    // Set the PICO LED to high to siginify that we have processed the data
     gpio_put(PICO_DEFAULT_LED_PIN, GPIO_HIGH);
     pico_state.step_queue.processing = false;
   }

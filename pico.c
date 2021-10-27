@@ -42,6 +42,84 @@ void pico_uart_deinit(void)
     uart_deinit(PICO_UART_ID);
 }
 
+void process_step_queue(void)
+{
+    // Process all movements that are enqueued or skip if there are none
+    while(!queue_is_empty(&pico_state.step_queue))
+    {
+      // Setup Information needed for step
+      uint32_t step_mask = 0;
+      drv_queue_node_t node;
+      queue_pop(&pico_state.step_queue, &node);
+
+      if(!node.initialized) // We have failed to get the data for the steps.
+        continue;    
+
+      // Maybe this should be put in the preprocessing step   
+      if(!node.x_steps && !node.y_steps && !node.z_steps) // There are no steps to be performed
+        continue;
+
+      pico_state.step_queue.processing = true;
+
+      // Get the Step Size
+      double step_size = drv_determine_step(node.mode_0, node.mode_1, node.mode_2);
+
+      // Enable Drivers
+      drv_enable_driver(true);
+
+      // Setup Step Directions.
+      drv_set_direction(X, node.x_dir);
+      drv_set_direction(Y, node.y_dir);
+      drv_set_direction(Z, node.z_dir);
+
+      // Setup Mode.
+      drv_set_mode(node.mode_0, node.mode_1, node.mode_2);
+
+      // Turn on Spindle
+      // enable_spindle(true);
+      
+      // Need to init these initialisers for the loop as they underflow if not assigned
+      // Did not know that (actually undefined behaviour)
+      // https://stackoverflow.com/questions/21152138/local-variable-initialized-to-zero-in-c
+      for(uint32_t x = 0, y = 0, z = 0; x < node.x_steps || y < node.y_steps || z < node.z_steps; x = y = ++z)
+      {
+        // Setup Mask for this step
+        SET_BIT_N(step_mask, DRV_X_STEP, !!(x < node.x_steps));
+        SET_BIT_N(step_mask, DRV_Y_STEP, !!(y < node.y_steps));
+        SET_BIT_N(step_mask, DRV_Z_STEP, !!(z < node.z_steps));
+
+        // Step the Motors
+        gpio_put_masked(step_mask, step_mask);
+        sleep_ms(800);
+        // sleep_us(3); // tWH(STEP)	Pulse duration, STEP high	1.9		μs (min)
+        gpio_put_masked(step_mask, ~step_mask);
+        sleep_ms(800);
+        // sleep_us(3); // tWL(STEP)	Pulse duration, STEP low	1.9		μs (min)
+        // The 2 Sleeps will generate our frequency (see figure 1. in Data Sheet)
+        // As long as the overall time is larger than ~4us we are within the allowed frequency 
+
+        // Update the State of the PICO's Step Counter
+        if(GET_BIT_N(step_mask, DRV_X_STEP))
+          pico_state.drv_x_location += (node.x_dir ? 1 : -1) * step_size;
+        if(GET_BIT_N(step_mask, DRV_Y_STEP))
+          pico_state.drv_y_location += (node.y_dir ? 1 : -1) * step_size;
+        if(GET_BIT_N(step_mask, DRV_Z_STEP))
+          pico_state.drv_z_location += (node.z_dir ? 1 : -1) * step_size;
+      }     
+    }
+
+    // TODO:
+    // These enables may be a waste to do between commands as they are probably always executed as a step is executed in microseconds
+    // They can also lead to skipping a command as they a sleeping outside the while loop
+    // which can lead to the core waiting for another interrupt while there are steps that still need to be performed
+
+    // Turn off Spindle
+    enable_spindle(false);
+    
+    // Should we do this?
+    drv_enable_driver(false);
+}
+
 void enable_spindle(bool enabled)
 {
     gpio_put(SPINDLE_TOGGLE, enabled);

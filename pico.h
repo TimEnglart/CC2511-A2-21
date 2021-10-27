@@ -122,7 +122,8 @@ void pico_gpio_init(int n_pins, ...);
 // (Helper Function) Disable UART Functionality 
 void pico_uart_deinit(void);
 
-
+// Process the Step Queue (Blocking)
+void process_step_queue(void);
 // Toggle the Spindle Motor
 void enable_spindle(bool enabled);
 // Set the Mode for the DRV's
