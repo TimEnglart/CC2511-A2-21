@@ -28,8 +28,7 @@
 > This Website flatterns the SVG into a single array of points so for complex svg's you will need to separate each element into its own array
 3. Add Each Array to the `feed_serial/predefined_shapes.js` file under a new object where each property is a SVG path (eg. The Coordinates generated above)
 4. Export the new object by placing the object in the `module.exports` object inside `feed_serial/predefined_shapes.js`
-5. Import the new Object inside the `feed_serial/index.js` and modify the variable `paths`
-6. Running `yarn start` should yield the pico drawing the new image.
+6. Using the `shapeName` you defined the object as running `yarn start shapeName` should yield the pico drawing the new image.
 
 ## File Overview
 ### drv8825.h & drv8825.c
