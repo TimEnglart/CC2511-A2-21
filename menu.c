@@ -15,7 +15,7 @@ char input_buffer[INPUT_BUFFER_SIZE];
 int input_buffer_index;
 
 // WASD Based Menu
-struct menu_node *current_menu, *main_menu, *free_draw_menu, *predefined_draw_menu;
+struct menu_node *current_menu, *main_menu, *manual_draw_menu, *automated_draw_menu;
 int text_output_y;
 
 void uart_irq_handler(void)
@@ -190,17 +190,17 @@ void go_to_menu(struct menu_node *menu)
   else term_cls();
 }
 
-void go_to_free_draw(void)
+void go_to_manual_draw(void)
 {
-  go_to_menu(free_draw_menu);
+  go_to_menu(manual_draw_menu);
 }
-void go_to_predefined_draw(void)
+void go_to_automated_draw(void)
 {
-  go_to_menu(predefined_draw_menu);
+  go_to_menu(automated_draw_menu);
 }
 
-// Handle Keypresses for free drawing
-char free_draw_irq(char ch) 
+// Handle Keypresses for manual drawing
+char manual_draw_irq(char ch) 
 {
   /*
     Menu Description:
@@ -286,12 +286,12 @@ char free_draw_irq(char ch)
 }
 uint8_t last_ch;
 uint commands_recv = 0;
-// Handle Keypresses for predefined drawing
-char predefined_draw_irq(char ch) 
+// Handle Keypresses for automated drawing
+char automated_draw_irq(char ch) 
 {
   /*
     Menu Description:
-    Allows for predefined coordinates to be used for drawing or
+    Allows for automated coordinates to be used for drawing or
     Pass Custom Coords to the queue
   */
   static char buffer[300];
@@ -320,6 +320,7 @@ char predefined_draw_irq(char ch)
     buffer[buffer_index] = '\0';
     break;
   case '\b':
+  case 0x7f:
     // On backspace. Let User Escape menu 
     return 0;
   default:
@@ -333,32 +334,32 @@ void generate_menus(void)
 {
   // Allocate Memory for all the menus
   main_menu = (struct menu_node *)malloc(sizeof(struct menu_node));
-  free_draw_menu = (struct menu_node *)malloc(sizeof(struct menu_node));
-  predefined_draw_menu = (struct menu_node *)malloc(sizeof(struct menu_node));
+  manual_draw_menu = (struct menu_node *)malloc(sizeof(struct menu_node));
+  automated_draw_menu = (struct menu_node *)malloc(sizeof(struct menu_node));
 
   // Create Options
 
   // Main Menu
   struct menu_option main_menu_options[] = {
     {
-      .on_select = go_to_free_draw,
-      .option_text = "Free Draw"
+      .on_select = go_to_manual_draw,
+      .option_text = "Manual Draw"
     },
     {
-      .on_select = go_to_predefined_draw,
-      .option_text = "Predefined Draw"
+      .on_select = go_to_automated_draw,
+      .option_text = "Automated Draw [SCRIPT ONLY]"
     }
   };
 
   create_menu(main_menu, "Main Menu", 0, LENGTH_OF_ARRAY(main_menu_options), main_menu_options);
 
-  // Free Draw Menu (Manual Movements)
-  create_menu(free_draw_menu, "Free Draw", main_menu, 0, 0);
-  free_draw_menu->override_irq = free_draw_irq; // Custom UART IRQ Handler
+  // Manual Draw Menu (Manual Movements)
+  create_menu(manual_draw_menu, "Manual Draw", main_menu, 0, 0);
+  manual_draw_menu->override_irq = manual_draw_irq; // Custom UART IRQ Handler
   
-  // Predefined Draw Menu (Serial Coordinates)
-  create_menu(predefined_draw_menu, "Predefined Draw", main_menu, 0, 0);
-  predefined_draw_menu->override_irq = predefined_draw_irq;
+  // Automated Draw Menu (Serial Coordinates)
+  create_menu(automated_draw_menu, "Automated Draw", main_menu, 0, 0);
+  automated_draw_menu->override_irq = automated_draw_irq;
 
   // Set The Current Menu to Main Menu
   current_menu = main_menu;
@@ -366,11 +367,11 @@ void generate_menus(void)
 
 void release_menus(void)
 { 
-  free(free_draw_menu->options);
-  free(free_draw_menu);
+  free(manual_draw_menu->options);
+  free(manual_draw_menu);
 
-  free(predefined_draw_menu->options);
-  free(predefined_draw_menu);
+  free(automated_draw_menu->options);
+  free(automated_draw_menu);
 
   free(main_menu->options);
   free(main_menu);
