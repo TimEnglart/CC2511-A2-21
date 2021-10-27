@@ -209,31 +209,34 @@ char free_draw_irq(char ch)
 
   // Statically Allocate our scoped variables that our function relies on
   static double step_amount = 1;
+  static uint8_t step_multiplier = 1;
+
+  double step = step_amount * step_multiplier;
 
   switch (ch)
   {
   // Move the Y Axis
   case 'w':
-    drv_append_position(0, step_amount, 0);
+    drv_append_position(0, step, 0);
     break;
   case 's':
-    drv_append_position(0, -step_amount, 0);
+    drv_append_position(0, -step, 0);
     break;
   
   // Move the X Axis
   case 'a':
-    drv_append_position(-step_amount, 0, 0);
+    drv_append_position(-step, 0, 0);
     break;
   case 'd':
-    drv_append_position(step_amount, 0, 0);
+    drv_append_position(step, 0, 0);
     break;
   
   // Move the Z Axis
   case 'q':
-    drv_append_position(0, 0, step_amount);
+    drv_append_position(0, 0, step);
     break;
   case 'e':
-    drv_append_position(0, 0, -step_amount);
+    drv_append_position(0, 0, -step);
     break;
 
   // Change Step Amounts
@@ -244,6 +247,15 @@ char free_draw_irq(char ch)
   case 'x':
     step_amount += 0.03125;
     if(step_amount > 1) step_amount = 1;
+    break;
+
+  case 'c':
+    step_multiplier += 1;
+    if(step_multiplier > 10) step_multiplier = 10;
+    break;
+  case 'v':
+    step_multiplier -= 1;
+    if(step_multiplier < 1) step_multiplier = 1;
     break;
   
   case 't':
@@ -290,7 +302,6 @@ char predefined_draw_irq(char ch)
   switch (ch)
   {
   case ';': // End of Coords
-  {
     commands_recv++;
     coords[coordinate_index++] = atof(buffer);
     drv_go_to_position(coords[0], coords[1], coords[2]);
@@ -298,19 +309,19 @@ char predefined_draw_irq(char ch)
     buffer_index = 0;
     buffer[buffer_index] = '\0';
     break;
-  }
-  case ',':
-  {
+  case ',': // End of Axis Coordinate
     coords[coordinate_index++] = atof(buffer);
     buffer_index = 0;
     buffer[buffer_index] = '\0';
     break;
-  }
   case '\n':
     // As the Script Tries to access the Menu From Main Menu. Wipe Data on newline
     buffer_index = 0;
     buffer[buffer_index] = '\0';
     break;
+  case '\b':
+    // On backspace. Let User Escape menu 
+    return 0;
   default:
     buffer[buffer_index++] = ch;
     buffer[buffer_index] = '\0';
