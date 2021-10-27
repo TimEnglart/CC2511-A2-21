@@ -18,7 +18,9 @@
 - Procced to Flash and Start the PICO
 - Open the `feed_serial` folder in a terminal/cmd window
 - Run `yarn` to install the required dependencies for the Serial Transmission
-- Run `yarn start` to run the script and being sending data to the pico to draw
+- Run `yarn start` to run the script this will output the available shapes that can be drawn
+- Run `yarn start <shape>` to start send the coordinates to the pico
+> Optionally you can run `yarn start dump <shape>` to dump the shape data so it can be viewed inside `visualise.html`
 
 ## Changing Shapes to Send to the PICO
 1. Obtain an SVG of the Image/Shape you want to draw.
@@ -28,8 +30,6 @@
 4. Export the new object by placing the object in the `module.exports` object inside `feed_serial/predefined_shapes.js`
 5. Import the new Object inside the `feed_serial/index.js` and modify the variable `paths`
 6. Running `yarn start` should yield the pico drawing the new image.
-> If you want to see a preview of the image that will be drawn uncomment the line containing `// continue; // Skip the Serial Transmission so we can dump`. This will skip drawing on the pico and export the images points. Opening the HTML file `visualise.html` should show the points drawn inside your web browser
-
 
 ## File Overview
 ### drv8825.h & drv8825.c

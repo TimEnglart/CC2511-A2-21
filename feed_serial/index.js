@@ -4,17 +4,28 @@
 
 */
 const fs = require('fs');
-const { circle, rectangle, multi_rect, multi_circle, rabbit, javascript_logo, generate } = require('./predefined_images');
+const predefinedImages = require('./predefined_images');
 const { write, open } = require('./serial');
 const { scalePoints } = require('./utils');
-
-// 0 is command, 1 is js file, 2 onward is args
-const dumpImage = (process.argv.slice(2)[0] || '').toLowerCase() === 'dump';
 
 // Set the Min and Max Steps for the PICO board (Same as in pico.h)
 const MAX_STEPS_X = 10, MAX_STEPS_Y = 10, MAX_STEPS_Z = 1, MIN_STEPS_X = 0, MIN_STEPS_Y = 0, MIN_STEPS_Z = 0;
 
 (async () => {
+    const args = process.argv.slice(2);
+    const dumpImage = (args[0] || '').toLowerCase() === 'dump';
+    const image = predefinedImages[dumpImage ? args[1] : args[0]];
+    if(!image)
+    {
+        console.log(`Invalid Image Provided\nRun one of the following commands to run the script:\n${
+            Object.keys(predefinedImages)
+                .filter(image => image !== 'generate')
+                .map(image => `yarn start ${image}`)
+                .join('\n')
+        }`);
+        return;
+    }
+
     // Open Serial Connection
     await open();
 
@@ -25,7 +36,7 @@ const MAX_STEPS_X = 10, MAX_STEPS_Y = 10, MAX_STEPS_Z = 1, MIN_STEPS_X = 0, MIN_
     await write(`${MIN_STEPS_X},${MIN_STEPS_Y},${MIN_STEPS_Z};`);
 
     // Process Points
-    const paths = multi_circle;
+    const paths = image;
     const dump = {};
     
     // As there are multiple paths with are not connected we need to iterate through each of them seperately to get a good scale
@@ -84,6 +95,10 @@ const MAX_STEPS_X = 10, MAX_STEPS_Y = 10, MAX_STEPS_Z = 1, MIN_STEPS_X = 0, MIN_
                 ) 
                     return [MIN_STEPS_X - 1, MIN_STEPS_Y - 1];
 
+                // BEWARE: Below will probably fattern out any sharp deviations that stay on one of the same axis
+                // Like: ___/\/\_____
+                // Would Become: _________
+
                 // Remove Redundant Y Movement Instructions
                 if(previousX === roundedX && nextX === roundedX)
                 {
@@ -99,7 +114,8 @@ const MAX_STEPS_X = 10, MAX_STEPS_Y = 10, MAX_STEPS_Z = 1, MIN_STEPS_X = 0, MIN_
             }
             return [roundedX, roundedY];
         }).filter(([x, y]) => x !== MIN_STEPS_X - 1 && y !== MIN_STEPS_Y - 1);
-        dump[key] = processedPoints
+        
+        dump[key] = processedPoints;
 
         // Send All the Scaled Points to the PICO
         console.log(`Sending: ${processedPoints.length} Steps (Originally: ${scaled.length} Steps)`);
@@ -129,9 +145,7 @@ const MAX_STEPS_X = 10, MAX_STEPS_Y = 10, MAX_STEPS_Z = 1, MIN_STEPS_X = 0, MIN_
         // Lift the Z
         await write(`${lastElementX},${lastElementY},${MIN_STEPS_Z};`);
     }
-
     fs.writeFileSync('dump.js', `var obj = ${JSON.stringify(dump)}; var loaded = true;`);
-
 })();
 
 
