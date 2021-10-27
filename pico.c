@@ -45,7 +45,8 @@ void pico_uart_deinit(void)
 void enable_spindle(bool enabled)
 {
     gpio_put(SPINDLE_TOGGLE, enabled);
-    sleep_ms(200); // Wind up time
+    if(enabled) // Only Allow Wind-up not wind down
+        busy_wait_ms(200); // Wind up time. Busy wait required as we use this inside an iterrupt :(
     pico_state.spindle_enabled = enabled;
 }
 void drv_set_mode(bool mode_0, bool mode_1, bool mode_2)
@@ -63,7 +64,7 @@ void drv_set_mode(bool mode_0, bool mode_1, bool mode_2)
 void drv_set_direction(DRV_DRIVER axis, bool direction)
 {
     char pin = drv_get_axis_pin(axis);
-    gpio_put(pin, direction);
+    gpio_put(pin + 1, direction);
     sleep_us(2); // Setup Time + Hold Time
 
     switch (axis)
@@ -199,7 +200,7 @@ void drv_go_to_position(double x, double y, double z)
     
     // Send the GPIO Process Signal if we are using Iterrupts
     #ifdef WAIT_FOR_INTERRUPT_CORE_1
-    gpio_put(PROCESS_QUEUE, GPIO_HIGH);
     gpio_put(PROCESS_QUEUE, GPIO_LOW);
+    gpio_put(PROCESS_QUEUE, GPIO_HIGH);
     #endif
 }

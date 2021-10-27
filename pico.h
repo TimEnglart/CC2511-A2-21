@@ -54,9 +54,9 @@
 #define DRV_STEP_FREQUENCY  200000
 
 // TODO: Get the Max Steps Possible for each axis
-#define DRV_X_MAX_STEPS 10
-#define DRV_Y_MAX_STEPS 10
-#define DRV_Z_MAX_STEPS 10
+#define DRV_X_MAX_STEPS 100
+#define DRV_Y_MAX_STEPS 100
+#define DRV_Z_MAX_STEPS 100
 
 #define DRV_X_MIN_STEPS 0
 #define DRV_Y_MIN_STEPS 0
