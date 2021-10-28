@@ -12,6 +12,8 @@ const { scalePoints } = require('./utils');
 const MAX_STEPS_X = 10, MAX_STEPS_Y = 10, MAX_STEPS_Z = 1, MIN_STEPS_X = 0, MIN_STEPS_Y = 0, MIN_STEPS_Z = 0;
 
 (async () => {
+
+    // Handle the Command Arguments
     const args = process.argv.slice(2);
     const dumpImage = (args[0] || '').toLowerCase() === 'dump';
     const image = predefinedImages[dumpImage ? args[1] : args[0]];

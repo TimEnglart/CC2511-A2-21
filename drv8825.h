@@ -25,6 +25,15 @@
 #define DRV_STEP_DURATION 3
 #define DRV_SETUP_TIME_DURATION 3
 
+// A4988 has different microsteps and possibly other things
+#define A4988_DRIVER
+
+#ifndef A4988_DRIVER
+#define DRV_MIN_STEP 0.03125
+#else
+#define DRV_MIN_STEP 0.0625
+#endif
+
 typedef unsigned char uint8_t;
 typedef long unsigned int uint32_t;
 

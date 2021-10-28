@@ -13,9 +13,7 @@
 #define GPIO_LOW    0
 
 
-
-#define PICO_UART_TX         0
-#define PICO_UART_RX         1
+// UART Settings
 #define PICO_UART_ID         uart0
 #define PICO_UART_IRQ        UART0_IRQ
 #define PICO_BAUD_RATE       115200
@@ -23,6 +21,9 @@
 #define PICO_STOP_BITS       1
 #define PICO_PARITY          UART_PARITY_NONE
 
+// PICO GPIO PINS
+#define PICO_UART_TX         0
+#define PICO_UART_RX         1
 
 #define DRV_MODE_2           2
 #define DRV_MODE_1           3
@@ -46,13 +47,12 @@
 #define SPINDLE_TOGGLE      16
 
 #define PROCESS_QUEUE       21
+
 // Wait for Interrupt to process the step queue. Comment out define to just sleep
 #define WAIT_FOR_INTERRUPT_CORE_1
 
 
-// Max Frequncy is 250kHz, use 200kHz
-#define DRV_STEP_FREQUENCY  200000
-
+// Maximum and Minimum Nuber of Steps available on each axis (from a arbitray origin)
 // TODO: Get the Max Steps Possible for each axis
 #define DRV_X_MAX_STEPS 100
 #define DRV_Y_MAX_STEPS 100
@@ -62,7 +62,7 @@
 #define DRV_Y_MIN_STEPS 0
 #define DRV_Z_MIN_STEPS 0
 
-
+// Mask of all the gpio pin w/ direction out
 #define GPIO_OUTPUT_PINS \
     (1 << DRV_RESET)        |\
     (1 << DRV_SLEEP)        |\
@@ -82,9 +82,10 @@
                              \
     (1 << SPINDLE_TOGGLE)
 
+// Mask of all the gpio pin w/ direction in
 #define GPIO_INPUT_PINS 0
 
-
+   
 typedef enum { X, Y, Z } DRV_DRIVER;
 
 typedef struct {

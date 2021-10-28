@@ -4,9 +4,16 @@
 
 bool queue_is_empty(drv_queue_t *queue)
 {
-    // TODO: Maybe Mutex lock this aswell so we read the most up to date information.
-    // Would be problematic when sleeps are involved as the mutex access will be spammed by the while loop. Slowing down execution
     return queue->length == 0;
+}
+
+bool queue_is_empty_mutex(drv_queue_t *queue)
+{
+    bool isEmpty = false;
+    mutex_enter_blocking(&queue->queue_lock);
+    isEmpty = queue->length == 0;
+    mutex_exit(&queue->queue_lock);
+    return isEmpty;
 }
 
 void queue_pop(drv_queue_t *queue, drv_queue_node_t *node)

@@ -5,6 +5,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include "queue.h"
+#include "drv8825.h"
 
 char pending_character_buffer[INPUT_BUFFER_SIZE];
 int pending_character_buffer_index;
@@ -137,7 +138,7 @@ void draw_menu(void)
 
 void draw_textbox(unsigned short x, unsigned short y)
 {
-  static unsigned short inital_length = 12;
+  static unsigned short inital_length = 12; // Length of the Textbox
 
   term_move_to(x, y);
   term_erase_line();
@@ -241,11 +242,11 @@ char manual_draw_irq(char ch)
 
   // Change Step Amounts
   case 'z':
-    step_amount -= 0.03125;
-    if(step_amount < 0.03125) step_amount = 0.03125;
+    step_amount -= DRV_MIN_STEP;
+    if(step_amount < DRV_MIN_STEP) step_amount = DRV_MIN_STEP;
     break;
   case 'x':
-    step_amount += 0.03125;
+    step_amount += DRV_MIN_STEP;
     if(step_amount > 1) step_amount = 1;
     break;
 
@@ -268,19 +269,10 @@ char manual_draw_irq(char ch)
   default:
     return 0;
   }
-    // Draw Instructions
+  // Draw Instructions
   term_move_to(0, text_output_y);
   term_set_color(clrWhite, clrBlack);
-  printf("Axis Navigation");
-  term_move_to(0, text_output_y + 1);
-  term_set_color(clrWhite, clrBlack);
-  printf("LEFT: A | RIGHT: D | FORWARD: W | BACK: S | UP: Q | DOWN: E");
-  term_move_to(0, text_output_y + 2);
-  term_set_color(clrWhite, clrBlack);
-  printf("Step Modification - Step = %.5f", step_amount);
-  term_move_to(0, text_output_y + 3);
-  term_set_color(clrWhite, clrBlack);
-  printf("INCREASE STEP: X | DECREASE STEP: Z");
+  printf("Current Step Value: %f\nCurrent Step Multiplier: %d", step_amount, step_multiplier);
   print_pico_state();
   return 1;
 }
@@ -353,8 +345,51 @@ void generate_menus(void)
 
   create_menu(main_menu, "Main Menu", 0, LENGTH_OF_ARRAY(main_menu_options), main_menu_options);
 
+  struct menu_option manual_draw_menu_options[] = {
+    {
+      .option_text = "Manual Draw Controls"
+    },
+    {
+      .option_text = "[D] - X Axis Right (+)"
+    },
+    {
+      .option_text = "[A] - X Axis Left (-)"
+    },
+    {
+      .option_text = "[W] - Y Axis Up (+)"
+    },
+    {
+      .option_text = "[S] - Y Axis Down (-)"
+    },
+    {
+      .option_text = "[Q] - Z Axis Forwards (+)"
+    },
+    {
+      .option_text = "[E] - Z Axis Backwards (-)"
+    },
+    {
+      .option_text = "[Z] - Increase Step Value (+)"
+    },
+    {
+      .option_text = "[X] - Decrease Step Value (-)"
+    },
+    {
+      .option_text = "[C] - Increase Step Multiplier (+)"
+    },
+    {
+      .option_text = "[V] - Decrease Step Multiplier (-)"
+    },
+    {
+      .option_text = "[T] - Enable Spindle Motor (+)"
+    },
+    {
+      .option_text = "[Y] - Disable Spindle Motor (-)"
+    },
+    
+  };
+
   // Manual Draw Menu (Manual Movements)
-  create_menu(manual_draw_menu, "Manual Draw", main_menu, 0, 0);
+  create_menu(manual_draw_menu, "Manual Draw", main_menu, LENGTH_OF_ARRAY(manual_draw_menu_options), manual_draw_menu_options);
   manual_draw_menu->override_irq = manual_draw_irq; // Custom UART IRQ Handler
   
   // Automated Draw Menu (Serial Coordinates)

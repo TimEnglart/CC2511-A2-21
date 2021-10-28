@@ -9,13 +9,13 @@ const getPicoPath = async () => {
 }
 
 // Async function that data (characters in our case) over the Serial Connection with a pause
-// NOTE: This pause is required so that the pico can actually read all the characters being passed
+// NOTE: This timeout is required so that the pico can actually read all the characters being passed
 const _write = async (data) => {
     return new Promise(res => setTimeout(() => serialPort.write(data, res), 30));
 }
 
 // Async function that Sends a string as characters over the Serial Connection
-// NOTE: The Pico only seems to like recieving 1 byte at a time within the given time frame
+// NOTE: The Pico only seems to like recieving 1 byte at a time within the given time frame. Even though the Serial Connection is configured for this
 const write = async (data) => {
     for(const ch of data)
         await _write(ch);

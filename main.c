@@ -6,16 +6,6 @@
 
 /*
 
-TODO LIST
-
-- Setup Codebase for DRV8825 based on Data Sheet (https://www.ti.com/lit/gpn/drv8825)
-- Create Menu Navigation Framework
-- Implement Required Functionality
-- Create Variables to track the state of the motors
-- Load Instructions to automate milling
-- Document and Clean Code for more marks.
-*/
-
 /*
   NOTES
 
@@ -59,6 +49,11 @@ int main(void) {
 
   // Set Pullups/Pulldowns for pins
   // gpio_set_pulls(DRV_FAULT, 1, 0); //Logic Low when Fault Occurs, Pull Up. No Fault Trace hahaha... :(
+  
+  // Set the Default State of the Drivers
+  drv_enable_driver(false);
+  drv_set_mode(0, 0, 0);
+  enable_spindle(false);
 
   // Setup Step Handler
   queue_init(&pico_state.step_queue);
@@ -91,8 +86,6 @@ int main(void) {
   drv_append_position((double)(-x_steps), (double)(-y_steps), 0);
   // The Steps are below 1 so even the lowest chaneg shouldn't matter
   drv_append_position(-pico_state.drv_x_location_pending, -pico_state.drv_y_location_pending, 0);
-
-  pico_state.step_queue.processing = true; // bye thread safety
   
   // Disable the Processing Core
   stop_processing = true;
@@ -102,11 +95,15 @@ int main(void) {
   // Free Menu Resources
   release_menus();
 
+  // Wait for Second Core to Finish Processing
   while(pico_state.step_queue.processing)
   {
     sleep_ms(100);
   }
+
+  // Clear UART Terminal
   term_cls();
+
   // Turn off LED as the board has exited the main loop
   gpio_put(PICO_DEFAULT_LED_PIN, GPIO_LOW);
 }
@@ -114,7 +111,7 @@ int main(void) {
 #ifdef WAIT_FOR_INTERRUPT_CORE_1
 void process(uint gpio, uint32_t events)
 {
-  // Using this function to get out of the low power mode
+  // Using this function to get out of the low power mode on core 1
 
   /*
     An Alternative to this using RTC (which seems a bit more complex than what we need):
@@ -131,6 +128,7 @@ void thread_main(void)
   gpio_init(PROCESS_QUEUE);
   gpio_set_dir(PROCESS_QUEUE, GPIO_OUT);
   gpio_pull_up(PROCESS_QUEUE);
+  gpio_put(PROCESS_QUEUE, GPIO_HIGH);
   gpio_set_irq_enabled_with_callback(PROCESS_QUEUE, GPIO_IRQ_EDGE_FALL, true, &process);
   #endif
 
@@ -153,7 +151,7 @@ void thread_main(void)
     do
     {
       process_step_queue(); // Process the Steps in the Queue and Act Upon Them
-    } while (!queue_is_empty(&pico_state.step_queue));
+    } while (!queue_is_empty_mutex(&pico_state.step_queue));
     
     // Set the PICO LED to high to siginify that we have processed the data
     gpio_put(PICO_DEFAULT_LED_PIN, GPIO_HIGH);

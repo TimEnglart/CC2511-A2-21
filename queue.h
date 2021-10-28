@@ -39,6 +39,9 @@ typedef struct {
 
 // Checks to see if there are nodes in the queue
 bool queue_is_empty(drv_queue_t* queue);
+// Checks to see if there are nodes in the queue and locks mutex
+bool queue_is_empty_mutex(drv_queue_t* queue);
+
 
 // Return and remove the 1st node in the queue
 void queue_pop(drv_queue_t* queue, drv_queue_node_t* node);

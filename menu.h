@@ -10,6 +10,7 @@
 
 #define LENGTH_OF_ARRAY(x)  (sizeof(x) / sizeof((x)[0]))
 
+// The current menu being displayed on UART at runtime
 extern struct menu_node *current_menu;
 
 // Structure to represent and scope a menu option

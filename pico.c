@@ -55,7 +55,6 @@ void process_step_queue(void)
       if(!node.initialized) // We have failed to get the data for the steps.
         continue;    
 
-      // Maybe this should be put in the preprocessing step   
       if(!node.x_steps && !node.y_steps && !node.z_steps) // There are no steps to be performed
         continue;
 
@@ -76,11 +75,9 @@ void process_step_queue(void)
       drv_set_mode(node.mode_0, node.mode_1, node.mode_2);
 
       // Turn on Spindle
-      // enable_spindle(true);
+      enable_spindle(true);
       
-      // Need to init these initialisers for the loop as they underflow if not assigned
-      // Did not know that (actually undefined behaviour)
-      // https://stackoverflow.com/questions/21152138/local-variable-initialized-to-zero-in-c
+      // Keep Iterating While there are steps
       for(uint32_t x = 0, y = 0, z = 0; x < node.x_steps || y < node.y_steps || z < node.z_steps; x = y = ++z)
       {
         // Setup Mask for this step
@@ -90,11 +87,9 @@ void process_step_queue(void)
 
         // Step the Motors
         gpio_put_masked(step_mask, step_mask);
-        sleep_ms(800);
-        // sleep_us(3); // tWH(STEP)	Pulse duration, STEP high	1.9		μs (min)
+        sleep_us(3); // tWH(STEP)	Pulse duration, STEP high	1.9		μs (min)
         gpio_put_masked(step_mask, ~step_mask);
-        sleep_ms(800);
-        // sleep_us(3); // tWL(STEP)	Pulse duration, STEP low	1.9		μs (min)
+        sleep_us(3); // tWL(STEP)	Pulse duration, STEP low	1.9		μs (min)
         // The 2 Sleeps will generate our frequency (see figure 1. in Data Sheet)
         // As long as the overall time is larger than ~4us we are within the allowed frequency 
 
@@ -108,7 +103,7 @@ void process_step_queue(void)
       }     
     }
 
-    // TODO:
+    // NOTE:
     // These enables may be a waste to do between commands as they are probably always executed as a step is executed in microseconds
     // They can also lead to skipping a command as they a sleeping outside the while loop
     // which can lead to the core waiting for another interrupt while there are steps that still need to be performed
@@ -124,25 +119,25 @@ void enable_spindle(bool enabled)
 {
     gpio_put(SPINDLE_TOGGLE, enabled);
     if(enabled) // Only Allow Wind-up not wind down
-        busy_wait_ms(200); // Wind up time. Busy wait required as we use this inside an iterrupt :(
+        busy_wait_ms(200); // Wind up time. Busy wait required as we use this inside an interrupt :(
     pico_state.spindle_enabled = enabled;
 }
 void drv_set_mode(bool mode_0, bool mode_1, bool mode_2)
 {
+    // Set the Pins to the respective high/low and update the state struct
     gpio_put(DRV_MODE_0, mode_0);
-    sleep_us(2); // Setup Time + Hold Time
     pico_state.mode_0 = mode_0;
     gpio_put(DRV_MODE_1, mode_1);
-    sleep_us(2); // Setup Time + Hold Time
     pico_state.mode_1 = mode_1;
     gpio_put(DRV_MODE_2, mode_2);
-    sleep_us(2); // Setup Time + Hold Time
     pico_state.mode_2 = mode_2;
+    sleep_us(2); // Setup Time + Hold Time
 }
 void drv_set_direction(DRV_DRIVER axis, bool direction)
 {
+    // Set the Pins to the respective high/low and update the state struct
     char pin = drv_get_axis_pin(axis);
-    gpio_put(pin + 1, direction);
+    gpio_put(pin + 1, direction); // Direction is step pin + 1 on our board
     sleep_us(2); // Setup Time + Hold Time
 
     switch (axis)
@@ -196,12 +191,11 @@ void drv_enable_driver(bool enabled)
     {
         // Are Sleeps Required Between the Changes Based on Datasheet or just before you send a step signal?
 
-        gpio_put(DRV_SLEEP, enabled); // Make the Device Awake.
-        sleep_ms(2);
-        gpio_put(DRV_ENABLE, !enabled); // Make Sure it is giving outputs
-        sleep_us(1);
-        gpio_put(DRV_RESET, enabled); // Enable HBridge Outputs
+        gpio_put(DRV_SLEEP, enabled); // Make the Device Awake. (Active High, Pulled Low)
+        gpio_put(DRV_ENABLE, !enabled); // Make Sure it is giving outputs (Active Low, Pulled Low)
+        gpio_put(DRV_RESET, enabled); // Enable HBridge Outputs (Active High, Pulled Low)
         pico_state.drv_enabled = enabled;
+        sleep_ms(3);
     }
 }
 
@@ -270,13 +264,20 @@ void drv_go_to_position(double x, double y, double z)
         .y_dir = y_dir,
         .z_steps = drv_step_amount_masked(z_distance, mode_mask),
         .z_dir = z_dir,
+        #ifndef A4988_DRIVER
+        // A4988_DRIVER modes are inversed compared to he DRV8825
         .mode_0 = GET_BIT_N(mode_mask, 2), 
         .mode_1 = GET_BIT_N(mode_mask, 1), 
         .mode_2 = GET_BIT_N(mode_mask, 0)
+        #else
+        .mode_0 = GET_BIT_N(mode_mask, 0), 
+        .mode_1 = GET_BIT_N(mode_mask, 1), 
+        .mode_2 = GET_BIT_N(mode_mask, 2)
+        #endif
     };
     queue_push(&pico_state.step_queue, &node);
     
-    // Send the GPIO Process Signal if we are using Iterrupts
+    // Send the GPIO Process Signal if we are using Interrupts
     #ifdef WAIT_FOR_INTERRUPT_CORE_1
     gpio_put(PROCESS_QUEUE, GPIO_LOW);
     gpio_put(PROCESS_QUEUE, GPIO_HIGH);
