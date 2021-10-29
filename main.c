@@ -21,13 +21,20 @@
 #include "queue.h"
 #include "terminal.h"
 
+// #define TEST
+
 // Foward Declaration so that main stays at the top
 void thread_main(void);
+void main_simple(void);
 
 // Core 1
 bool stop_processing;
 
 int main(void) {
+  #ifdef TEST
+  main_simple();
+  #else
+
   // Enable Standard I/O Functionality
   stdio_init_all();
 
@@ -77,6 +84,8 @@ int main(void) {
   int z_steps = (int)pico_state.drv_z_location_pending;
 
   // NOTE: Could use drv_go_to_position but need to provide additional pico states which append does for us
+  // NOTE: Could use drv_go_to_position with 0's but that has the possiblity of taking smaller steps as it doesn't split steps
+
   // Step the Z Axis Back to Origin / 0
   // Example: If we are at 73.25 Steps on the Z axis
   drv_append_position(0, 0, (double)(-z_steps)); // Will be -73
@@ -106,6 +115,8 @@ int main(void) {
 
   // Turn off LED as the board has exited the main loop
   gpio_put(PICO_DEFAULT_LED_PIN, GPIO_LOW);
+
+  #endif
 }
 
 #ifdef WAIT_FOR_INTERRUPT_CORE_1
@@ -156,5 +167,71 @@ void thread_main(void)
     // Set the PICO LED to high to siginify that we have processed the data
     gpio_put(PICO_DEFAULT_LED_PIN, GPIO_HIGH);
     pico_state.step_queue.processing = false;
+  }
+}
+
+// This Function is used to test the setup on a basic level by sending 20 full steps w/ large sleeps
+void main_simple(void)
+{
+  gpio_init(DRV_RESET);
+  gpio_set_dir(DRV_RESET, GPIO_OUT);
+  gpio_put(DRV_RESET, GPIO_HIGH);
+
+  gpio_init(DRV_SLEEP);
+  gpio_set_dir(DRV_SLEEP, GPIO_OUT);
+  gpio_put(DRV_SLEEP, GPIO_HIGH);
+
+  gpio_init(DRV_ENABLE);
+  gpio_set_dir(DRV_ENABLE, GPIO_OUT);
+  gpio_put(DRV_ENABLE, GPIO_LOW);
+
+  gpio_init(DRV_MODE_0);
+  gpio_set_dir(DRV_MODE_0, GPIO_OUT);
+  gpio_put(DRV_MODE_0, GPIO_LOW);
+
+  gpio_init(DRV_MODE_1);
+  gpio_set_dir(DRV_MODE_1, GPIO_OUT);
+  gpio_put(DRV_MODE_1, GPIO_LOW);
+
+  gpio_init(DRV_MODE_2);
+  gpio_set_dir(DRV_MODE_2, GPIO_OUT);
+  gpio_put(DRV_MODE_2, GPIO_LOW);
+
+  gpio_init(DRV_X_DIRECTION);
+  gpio_set_dir(DRV_X_DIRECTION, GPIO_OUT);
+  gpio_put(DRV_X_DIRECTION, GPIO_HIGH);
+
+  gpio_init(DRV_X_STEP);
+  gpio_set_dir(DRV_X_STEP, GPIO_OUT);
+  gpio_put(DRV_X_STEP, GPIO_LOW);
+
+  gpio_init(DRV_Y_DIRECTION);
+  gpio_set_dir(DRV_Y_DIRECTION, GPIO_OUT);
+  gpio_put(DRV_Y_DIRECTION, GPIO_HIGH);
+
+  gpio_init(DRV_Y_STEP);
+  gpio_set_dir(DRV_Y_STEP, GPIO_OUT);
+  gpio_put(DRV_Y_STEP, GPIO_LOW);
+
+  gpio_init(DRV_Z_DIRECTION);
+  gpio_set_dir(DRV_Z_DIRECTION, GPIO_OUT);
+  gpio_put(DRV_Z_DIRECTION, GPIO_HIGH);
+
+  gpio_init(DRV_Z_STEP);
+  gpio_set_dir(DRV_Z_STEP, GPIO_OUT);
+  gpio_put(DRV_Z_STEP, GPIO_LOW);
+
+  sleep_ms(1000); // Wait a Second For Setup Time
+
+  for(int i = 0; i < 20; i++)
+  {
+    gpio_put(DRV_X_STEP, GPIO_HIGH);
+    gpio_put(DRV_Y_STEP, GPIO_HIGH);
+    gpio_put(DRV_Z_STEP, GPIO_HIGH);
+    sleep_ms(100);
+    gpio_put(DRV_X_STEP, GPIO_LOW);
+    gpio_put(DRV_Y_STEP, GPIO_LOW);
+    gpio_put(DRV_Z_STEP, GPIO_LOW);
+    sleep_ms(100);
   }
 }

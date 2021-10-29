@@ -4,6 +4,7 @@
 
 double drv_determine_step(bool mode_0, bool mode_1, bool mode_2)
 {
+    // NOTE: Refer to the Step table in the DRV8825 Datasheet to why these values are being used
     #ifndef A4988_DRIVER
     // DRV8825 Steps
     if(!mode_0 && !mode_1 && !mode_2) 
@@ -73,6 +74,7 @@ double drv_determine_distance(double step_amount, unsigned int n_steps)
 
 uint32_t drv_step_amount(double distance, bool mode_0, bool mode_1, bool mode_2)
 {
+    // Count the number of steps at the given mode fit into the distance
     uint32_t steps = 0;
     double step_amount = drv_determine_step(mode_0, mode_1, mode_2);
     for(double step = 0; step < distance; step += step_amount)
@@ -81,6 +83,7 @@ uint32_t drv_step_amount(double distance, bool mode_0, bool mode_1, bool mode_2)
 }
 uint32_t drv_step_amount_masked(double distance, uint8_t mode_mask)
 {
+    // Extracts the modes from a mask and uses the drv_step_amount above to return the step count
     return drv_step_amount(distance, 
         #ifndef A4988_DRIVER
         GET_BIT_N(mode_mask, 2), 

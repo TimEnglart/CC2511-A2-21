@@ -21,12 +21,8 @@
                     STEP input accepted		
 */
 
-#define DRV_STEP_FREQ_SLEEP 5
-#define DRV_STEP_DURATION 3
-#define DRV_SETUP_TIME_DURATION 3
-
 // A4988 has different microsteps and possibly other things
-#define A4988_DRIVER
+// #define A4988_DRIVER
 
 #ifndef A4988_DRIVER
 #define DRV_MIN_STEP 0.03125

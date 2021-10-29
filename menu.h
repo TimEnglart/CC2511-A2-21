@@ -54,6 +54,7 @@ void write_debug(const char* format, ...);
 // Free's all resources for the menu allocated on the heap
 void release_menus(void);
 
+// Prints the Values that are in pico_state to the terminal
 void print_pico_state(void);
 
 #endif // PICO_MENU_H

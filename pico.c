@@ -117,6 +117,10 @@ void process_step_queue(void)
 
 void enable_spindle(bool enabled)
 {
+    // TODO: Could be moved to a pwm interrupt which is enabled and disabled
+    // Pros: Allows for changing Speed
+    // Cons: Unable to wait for the Spindle to reach optimal speed
+     
     gpio_put(SPINDLE_TOGGLE, enabled);
     if(enabled) // Only Allow Wind-up not wind down
         busy_wait_ms(200); // Wind up time. Busy wait required as we use this inside an interrupt :(

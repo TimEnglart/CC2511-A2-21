@@ -53,7 +53,7 @@
 
 
 // Maximum and Minimum Nuber of Steps available on each axis (from a arbitray origin)
-// TODO: Get the Max Steps Possible for each axis
+// TODO: Get the Max Steps Possible for each axis (Need to Physically Test the motors)
 #define DRV_X_MAX_STEPS 100
 #define DRV_Y_MAX_STEPS 100
 #define DRV_Z_MAX_STEPS 100

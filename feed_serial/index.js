@@ -31,7 +31,7 @@ const MAX_STEPS_X = 10, MAX_STEPS_Y = 10, MAX_STEPS_Z = 1, MIN_STEPS_X = 0, MIN_
     // Open Serial Connection
     await open();
 
-    // Get to the Predefined Draw Menu
+    // Get to the Automated Draw Menu
     await write("s\n");
     
     // Reset the to the Origin

@@ -17,12 +17,15 @@ int input_buffer_index;
 
 // WASD Based Menu
 struct menu_node *current_menu, *main_menu, *manual_draw_menu, *automated_draw_menu;
+
+// This is the y index for additional text to be printed on (or larger) so that it doesn't overlap the menu text
 int text_output_y;
 
 void uart_irq_handler(void)
 {
   while (uart_is_readable(PICO_UART_ID))
   {
+    // Leave Interrupt if we are not on a valid menu
     if(!current_menu)
       return;
 
@@ -38,7 +41,8 @@ void uart_irq_handler(void)
     switch (ch)
     {
     // Navigation
-    case 'w':
+    // Move Up
+    case 'w': 
       if (current_menu->current_selection > 0)
       {
         current_menu->previous_selection = current_menu->current_selection;
@@ -46,7 +50,8 @@ void uart_irq_handler(void)
         update_selection();
       }
       break;
-    case 's':
+    // Move Down
+    case 's': 
       if (current_menu->current_selection < current_menu->options_length - 1)
       {
         current_menu->previous_selection = current_menu->current_selection;
@@ -111,7 +116,7 @@ void draw_menu(void)
   term_move_to(0, text_output_y + 1);
   term_erase_line();
   term_set_color(clrGreen, clrBlack);
-  printf("Controls: W - Up | S - Down | A - Left | D - Right");
+  printf("Controls: W - Up | S - Down | Backspace - Back | Enter/Space - Select");
 
   // write_debug("\nLength: %d\nText: %s\n", current_menu->options_length, current_menu->options[0].option_text);
 
@@ -140,14 +145,19 @@ void draw_textbox(unsigned short x, unsigned short y)
 {
   static unsigned short inital_length = 12; // Length of the Textbox
 
+  // Move to the Selected x & y
   term_move_to(x, y);
   term_erase_line();
   term_set_color(clrWhite, clrWhite);
+
+  // Using a White Background Draw Blank Characters to create an "input box"
   for (unsigned short i = 0; i < inital_length; i++)
   {
     term_move_to(x + i, y);
     printf(" ");
   }
+
+  // Set Colors back to default and move the terminal cursor back to the start of the "input box"
   term_set_color(clrBlack, clrWhite);
   term_move_to(x, y);
 }
@@ -174,8 +184,11 @@ void create_menu(struct menu_node *menu, const char *menu_name, struct menu_node
 void go_to_menu(struct menu_node *menu)
 {
   // Clear the Options, Not the Entire Menu
+
+  // Set the pointer of the current menu to the provided menu
   struct menu_node *previous_menu = current_menu;
   current_menu = menu;
+
   if(menu)
   {  
     // Clear the Overflowed Options
@@ -250,6 +263,7 @@ char manual_draw_irq(char ch)
     if(step_amount > 1) step_amount = 1;
     break;
 
+  // Update Step Multiplier
   case 'c':
     step_multiplier += 1;
     if(step_multiplier > 10) step_multiplier = 10;
@@ -259,6 +273,7 @@ char manual_draw_irq(char ch)
     if(step_multiplier < 1) step_multiplier = 1;
     break;
   
+  // Change Spindle State
   case 't':
     enable_spindle(true);
     break;
@@ -270,14 +285,13 @@ char manual_draw_irq(char ch)
     return 0;
   }
   // Draw Instructions
-  term_move_to(0, text_output_y);
+  term_move_to(0, text_output_y + 2);
   term_set_color(clrWhite, clrBlack);
   printf("Current Step Value: %f\nCurrent Step Multiplier: %d", step_amount, step_multiplier);
   print_pico_state();
   return 1;
 }
-uint8_t last_ch;
-uint commands_recv = 0;
+
 // Handle Keypresses for automated drawing
 char automated_draw_irq(char ch) 
 {
@@ -286,23 +300,28 @@ char automated_draw_irq(char ch)
     Allows for automated coordinates to be used for drawing or
     Pass Custom Coords to the queue
   */
-  static char buffer[300];
-  static uint8_t buffer_index = 0;
-  static double coords[3];
-  static uint8_t coordinate_index = 0;
-  last_ch = ch;
+
+  // Setup Static and Scoped Variables used to track menu state
+  static char buffer[300]; // Character buffer. Basically our string version of the double provided
+  static uint8_t buffer_index = 0; // The Index of the latest charatcer in the buffer
+  static double coordinates[3]; // Coordinate Buffer. Index 0 = X, 1 = Y, 2 = Z
+  static uint8_t coordinate_index = 0; // The Index of the latest coordinate in the buffer
+
   switch (ch)
   {
   case ';': // End of Coords
-    commands_recv++;
-    coords[coordinate_index++] = atof(buffer);
-    drv_go_to_position(coords[0], coords[1], coords[2]);
+    coordinates[coordinate_index++] = atof(buffer); // Convert our buffer to a double (Should be Z as it is the final element)
+    drv_go_to_position(coordinates[0], coordinates[1], coordinates[2]); // Add the New Set of coordinates to the proccessing queue
+    
+    // Reset All Buffer Data
     coordinate_index = 0;
     buffer_index = 0;
     buffer[buffer_index] = '\0';
     break;
   case ',': // End of Axis Coordinate
-    coords[coordinate_index++] = atof(buffer);
+    coordinates[coordinate_index++] = atof(buffer); // Convert our buffer to a double (Should be X or Y as they are not the final element)
+
+    // Reset String Buffer Data
     buffer_index = 0;
     buffer[buffer_index] = '\0';
     break;
@@ -313,9 +332,14 @@ char automated_draw_irq(char ch)
     break;
   case '\b':
   case 0x7f:
-    // On backspace. Let User Escape menu 
+    // On backspace. Let User Escape menu if they selected it and wipe any data they provided
+    coordinate_index = 0;
+    coordinates[0] = coordinates[1] = coordinates[2] = 0;
+    buffer_index = 0;
+    buffer[buffer_index] = '\0';
     return 0;
   default:
+    // Store Character & Increment the string buffer when a non special character is received
     buffer[buffer_index++] = ch;
     buffer[buffer_index] = '\0';
     break;
@@ -385,7 +409,6 @@ void generate_menus(void)
     {
       .option_text = "[Y] - Disable Spindle Motor (-)"
     },
-    
   };
 
   // Manual Draw Menu (Manual Movements)
@@ -402,6 +425,7 @@ void generate_menus(void)
 
 void release_menus(void)
 { 
+  // As we have manually assigned memory using memset. Release that Memory
   free(manual_draw_menu->options);
   free(manual_draw_menu);
 
